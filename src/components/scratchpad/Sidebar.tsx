@@ -35,10 +35,12 @@ export function Sidebar() {
   const setView = useScratchpad((s) => s.setSidebarView);
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-surface">
-      <div className="flex h-10 shrink-0 items-center gap-1 border-b border-border px-1.5">
-        <SideTab active={view === "workspace"} onClick={() => setView("workspace")} icon={<Folder className="size-3.5 shrink-0" />} label="Workspace" />
-        <SideTab active={view === "history"} onClick={() => setView("history")} icon={<History className="size-3.5 shrink-0" />} label="History" />
-        <SideTab active={view === "search"} onClick={() => setView("search")} icon={<Search className="size-3.5 shrink-0" />} label="Search" />
+      <div className="shrink-0 px-2 pt-2 pb-1">
+        <div className="flex items-center gap-0.5 rounded-lg bg-inset p-0.5">
+          <SideTab active={view === "workspace"} onClick={() => setView("workspace")} icon={<Folder className="size-3.5" />} label="Workspace" />
+          <SideTab active={view === "history"} onClick={() => setView("history")} icon={<History className="size-3.5" />} label="History" />
+          <SideTab active={view === "search"} onClick={() => setView("search")} icon={<Search className="size-3.5" />} label="Search" />
+        </div>
       </div>
       {view === "workspace" ? <WorkspaceTree /> : null}
       {view === "history" ? <HistoryList /> : null}
@@ -196,7 +198,7 @@ function CollectionNode({
         <button type="button" className="flex min-w-0 flex-1 items-center gap-1 py-1.5 text-left" onClick={() => toggle(id)}>
           <ChevronRight className={cn("size-3.5 text-subtle transition-transform", open && "rotate-90")} />
           {open ? <FolderOpen className="size-3.5 text-muted" /> : <Folder className="size-3.5 text-muted" />}
-          <span className="truncate text-sm font-medium">{name}</span>
+          <span className="min-w-0 truncate text-sm font-medium" title={name}>{name}</span>
         </button>
         <RowMenu
           onRename={onRename}
@@ -247,7 +249,7 @@ function ItemNode({
           <button type="button" className="flex min-w-0 flex-1 items-center gap-1 py-1 text-left" onClick={() => toggle(item.id)}>
             <ChevronRight className={cn("size-3 text-subtle transition-transform", open && "rotate-90")} />
             <Folder className="size-3.5 text-muted" />
-            <span className="truncate text-sm">{item.name}</span>
+            <span className="min-w-0 truncate text-sm" title={item.name}>{item.name}</span>
           </button>
           <RowMenu
             onRename={() => onRenameItem(item)}
