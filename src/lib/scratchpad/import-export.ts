@@ -85,6 +85,19 @@ export function toPortable(snapshot: PersistSnapshot): PortableWorkspace {
   };
 }
 
+export function exportSubset(snapshot: PersistSnapshot, itemIds: string[]): PortableWorkspace {
+  const ids = new Set(itemIds);
+  const items = snapshot.items.filter((i) => ids.has(i.id));
+  const collectionIds = new Set(items.map((i) => i.collectionId));
+  return toPortable({
+    ...snapshot,
+    items,
+    collections: snapshot.collections.filter((c) => collectionIds.has(c.id)),
+    environments: snapshot.environments,
+    history: [],
+  });
+}
+
 export function exportHttpBundle(snapshot: PersistSnapshot): string {
   const parts: string[] = [`# ${snapshot.workspace.name}`, `# Exported ${new Date().toISOString()}`, ""];
   for (const item of snapshot.items.filter((i) => i.kind === "request")) {

@@ -48,7 +48,9 @@ export function CenterWorkspace() {
                 <span
                   role="button"
                   tabIndex={0}
-                  className="rounded-sm p-0.5 text-subtle hover:bg-inset hover:text-foreground"
+                  aria-label="Close"
+                  title="Close"
+                  className="rounded-md p-0.5 text-subtle hover:bg-inset hover:text-foreground"
                   onClick={(e) => {
                     e.stopPropagation();
                     closeTab(tab.id);

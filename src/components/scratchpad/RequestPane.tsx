@@ -1,7 +1,9 @@
 import { Play, Square } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { IconTip } from "@/components/ui/icon-tip";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { HTTP_METHODS, type AuthType, type BodyType, type HttpMethod, type Item } from "@/lib/scratchpad/types";
@@ -10,6 +12,7 @@ import { serializeHttp, toCurl } from "@/lib/scratchpad/http";
 import { useScratchpad } from "@/lib/scratchpad/store";
 import { copyText } from "@/lib/utils";
 import { toast } from "sonner";
+import { CodeBlock } from "./CodeBlock";
 
 export function RequestPane({ item }: { item: Item }) {
   const updateRequest = useScratchpad((s) => s.updateRequest);
@@ -23,15 +26,21 @@ export function RequestPane({ item }: { item: Item }) {
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex flex-col gap-2 border-b border-border p-3">
         <div className="flex gap-2">
-          <select
+          <Select
             value={item.method ?? "GET"}
-            onChange={(e) => updateRequest(item.id, { method: e.target.value as HttpMethod })}
-            className="h-9 w-[108px] rounded-sm border border-border bg-elevated px-2 font-mono text-xs font-semibold"
+            onValueChange={(value) => updateRequest(item.id, { method: value as HttpMethod })}
           >
-            {HTTP_METHODS.map((m) => (
-              <option key={m}>{m}</option>
-            ))}
-          </select>
+            <SelectTrigger className="h-9 w-[108px] font-mono text-xs font-semibold" aria-label="Request method">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {HTTP_METHODS.map((m) => (
+                <SelectItem key={m} value={m}>
+                  {m}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Input
             value={item.url ?? ""}
             onChange={(e) => updateRequest(item.id, { url: e.target.value })}
@@ -86,9 +95,11 @@ export function RequestPane({ item }: { item: Item }) {
                   className="font-mono"
                   onChange={(e) => upsertHeader(item.id, { ...h, value: e.target.value })}
                 />
-                <Button size="icon-sm" variant="ghost" onClick={() => removeHeaderRow(item.id, h.id)}>
-                  ×
-                </Button>
+                <IconTip label="Remove header">
+                  <Button size="icon-sm" variant="ghost" aria-label="Remove header" onClick={() => removeHeaderRow(item.id, h.id)}>
+                    ×
+                  </Button>
+                </IconTip>
               </div>
             ))}
           </div>
@@ -126,15 +137,18 @@ export function RequestPane({ item }: { item: Item }) {
           )}
         </TabsContent>
         <TabsContent value="raw" className="min-h-0 flex-1 overflow-auto p-3">
-          <pre className="rounded-md border border-border bg-inset p-3 font-mono text-xs leading-relaxed">
-            {serializeHttp({
-              name: item.name,
-              method: item.method ?? "GET",
-              url: item.url ?? "",
-              headers: item.headers,
-              body: item.body,
-            })}
-          </pre>
+          <div className="rounded-lg border border-border bg-inset p-3">
+            <CodeBlock
+              lang="http"
+              code={serializeHttp({
+                name: item.name,
+                method: item.method ?? "GET",
+                url: item.url ?? "",
+                headers: item.headers,
+                body: item.body,
+              })}
+            />
+          </div>
           <Button
             size="sm"
             variant="secondary"
@@ -247,14 +261,18 @@ function AuthEditor({ item }: { item: Item }) {
         <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
           <Input placeholder="Header or query name" value={auth.key ?? ""} onChange={(e) => setAuth(item.id, { ...auth, key: e.target.value })} />
           <Input placeholder="{{apiKey}}" className="font-mono" value={auth.value ?? ""} onChange={(e) => setAuth(item.id, { ...auth, value: e.target.value })} />
-          <select
-            className="h-8 rounded-md border border-border bg-elevated px-2 text-xs"
+          <Select
             value={auth.in ?? "header"}
-            onChange={(e) => setAuth(item.id, { ...auth, in: e.target.value as "header" | "query" })}
+            onValueChange={(value) => setAuth(item.id, { ...auth, in: value as "header" | "query" })}
           >
-            <option value="header">Header</option>
-            <option value="query">Query</option>
-          </select>
+            <SelectTrigger className="h-8 w-28" aria-label="API key location">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="header">Header</SelectItem>
+              <SelectItem value="query">Query</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       ) : null}
       <label className="flex items-center gap-2 text-xs text-muted">

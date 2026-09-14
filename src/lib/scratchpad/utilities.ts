@@ -374,3 +374,15 @@ Accept: application/json
 1,Ada Lovelace,ada@example.com
 2,Grace Hopper,grace@example.com`,
 };
+
+export function looksLikeJwt(text: string): boolean {
+  const t = text.trim().replace(/^["']|["']$/g, "").replace(/^Bearer\s+/i, "");
+  const parts = t.split(".");
+  return parts.length === 3 && parts.every((p) => /^[A-Za-z0-9_-]{8,}$/.test(p));
+}
+
+export function looksLikeEpoch(value: unknown): boolean {
+  if (typeof value === "number") return value > 1e9 && value < 2e13;
+  if (typeof value === "string" && /^\d{10,13}$/.test(value.trim())) return true;
+  return false;
+}

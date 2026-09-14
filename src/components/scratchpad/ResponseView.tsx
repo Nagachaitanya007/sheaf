@@ -6,7 +6,9 @@ import { contentTypeOf, prettyBody } from "@/lib/scratchpad/http";
 import { jsonPathToString } from "@/lib/scratchpad/jsonpath";
 import { useScratchpad } from "@/lib/scratchpad/store";
 import type { HttpResponse, ResponseView as ResponseViewTab } from "@/lib/scratchpad/types";
+import { looksLikeEpoch, looksLikeJwt } from "@/lib/scratchpad/utilities";
 import { cn, copyText, formatBytes, formatDuration } from "@/lib/utils";
+import { CodeBlock } from "./CodeBlock";
 import { JsonTree } from "./JsonTree";
 import { toast } from "sonner";
 
@@ -24,6 +26,8 @@ export function ResponseView({ response, compact = false }: { response: HttpResp
   const pretty = useMemo(() => (response ? prettyBody(response.body, ct) : ""), [response, ct]);
   const isHtml = ct.includes("html");
   const isJson = ct.includes("json") || (response ? prettyBodyLooksJson(response.body) : false);
+  const jwt = response && looksLikeJwt(response.body);
+  const epoch = response ? looksLikeEpoch(Number(response.body.trim()) || response.body.trim()) : false;
 
   if (!response) {
     if (compact) return null;
@@ -52,7 +56,34 @@ export function ResponseView({ response, compact = false }: { response: HttpResp
             Showing {formatBytes(response.body.length)} of {formatBytes(response.truncatedOf ?? response.size)}
           </Badge>
         ) : null}
-        <div className="ml-auto flex gap-1">
+        <div className="ml-auto flex flex-wrap gap-1">
+          {jwt ? (
+            <Button size="sm" variant="ghost" onClick={() => useScratchpad.getState().setUtility("jwt")}>
+              Inspect JWT
+            </Button>
+          ) : null}
+          {epoch ? (
+            <Button size="sm" variant="ghost" onClick={() => useScratchpad.getState().setUtility("epoch")}>
+              Epoch converter
+            </Button>
+          ) : null}
+          {isJson ? (
+            <Button size="sm" variant="ghost" onClick={() => useScratchpad.getState().setUtility("json-format")}>
+              Open in JSON
+            </Button>
+          ) : null}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              const history = useScratchpad.getState().history;
+              if (history[0]) useScratchpad.getState().setCompare(0, history[0].id);
+              if (history[1]) useScratchpad.getState().setCompare(1, history[1].id);
+              useScratchpad.getState().setRightTab("meta");
+            }}
+          >
+            Compare
+          </Button>
           <Button
             size="sm"
             variant="ghost"
@@ -84,9 +115,18 @@ export function ResponseView({ response, compact = false }: { response: HttpResp
         </div>
         <div className="min-h-0 flex-1 overflow-auto">
           <TabsContent value="pretty" className="h-full">
-            <pre className="whitespace-pre-wrap break-all px-3 py-2 font-mono text-xs leading-relaxed text-foreground">
-              {pretty.length > 120_000 ? pretty.slice(0, 120_000) + "\n… truncated for display" : pretty || "Empty body"}
-            </pre>
+            {isJson ? (
+              <div className="px-3 py-2">
+                <CodeBlock
+                  lang="json"
+                  code={pretty.length > 120_000 ? pretty.slice(0, 120_000) + "\n… truncated for display" : pretty || "Empty body"}
+                />
+              </div>
+            ) : (
+              <pre className="whitespace-pre-wrap break-all px-3 py-2 font-mono text-xs leading-relaxed text-foreground">
+                {pretty.length > 120_000 ? pretty.slice(0, 120_000) + "\n… truncated for display" : pretty || "Empty body"}
+              </pre>
+            )}
           </TabsContent>
           <TabsContent value="raw">
             <pre className="whitespace-pre-wrap break-all px-3 py-2 font-mono text-xs leading-relaxed text-muted">

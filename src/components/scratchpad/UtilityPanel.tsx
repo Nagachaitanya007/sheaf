@@ -2,6 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useScratchpad } from "@/lib/scratchpad/store";
 import type { UtilityId } from "@/lib/scratchpad/types";
@@ -34,17 +35,18 @@ export function UtilityPanel() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="border-b border-border px-2 py-2">
-        <select
-          value={active}
-          onChange={(e) => setUtility(e.target.value as UtilityId)}
-          className="h-8 w-full rounded-sm border border-border bg-inset px-2 text-sm text-foreground"
-        >
-          {UTILITIES.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.group} · {u.name}
-            </option>
-          ))}
-        </select>
+        <Select value={active} onValueChange={(id) => setUtility(id as UtilityId)}>
+          <SelectTrigger className="h-8 w-full" aria-label="Utility">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {UTILITIES.map((u) => (
+              <SelectItem key={u.id} value={u.id}>
+                {u.group} · {u.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-3">
         <UtilityBody id={active} />
@@ -407,15 +409,16 @@ function UtilityBody({ id }: { id: UtilityId }) {
       <div className="flex flex-col gap-2">
         <Textarea rows={5} value={a} onChange={(e) => setA(e.target.value)} />
         <div className="flex gap-2">
-          <select
-            value={hashAlgo}
-            onChange={(e) => setHashAlgo(e.target.value as typeof hashAlgo)}
-            className="h-8 rounded-sm border border-border bg-inset px-2 text-xs"
-          >
-            <option>SHA-1</option>
-            <option>SHA-256</option>
-            <option>SHA-512</option>
-          </select>
+          <Select value={hashAlgo} onValueChange={(v) => setHashAlgo(v as typeof hashAlgo)}>
+            <SelectTrigger className="h-8 w-32" aria-label="Hash algorithm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="SHA-1">SHA-1</SelectItem>
+              <SelectItem value="SHA-256">SHA-256</SelectItem>
+              <SelectItem value="SHA-512">SHA-512</SelectItem>
+            </SelectContent>
+          </Select>
           <Button
             size="sm"
             variant="send"

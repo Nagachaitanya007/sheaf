@@ -48,6 +48,9 @@ export interface ScratchpadState {
   searchOpen: boolean;
   shortcutsOpen: boolean;
   envEditorOpen: boolean;
+  importExportOpen: boolean;
+  syncOpen: boolean;
+  syncTick: number;
   searchQuery: string;
   lastResponse: HttpResponse | null;
   lastResponseItemId: string | null;
@@ -72,6 +75,9 @@ interface Actions {
   setSearchOpen: (open: boolean) => void;
   setShortcutsOpen: (open: boolean) => void;
   setEnvEditorOpen: (open: boolean) => void;
+  setImportExportOpen: (open: boolean) => void;
+  setSyncOpen: (open: boolean) => void;
+  setSyncTick: () => void;
   setSearchQuery: (q: string) => void;
   setUtility: (id: UtilityId | null) => void;
   selectItem: (id: string | null) => void;
@@ -163,6 +169,9 @@ export const useScratchpad = create<ScratchpadState & Actions>((set, get) => ({
   searchOpen: false,
   shortcutsOpen: false,
   envEditorOpen: false,
+  importExportOpen: false,
+  syncOpen: false,
+  syncTick: 0,
   searchQuery: "",
   lastResponse: null,
   lastResponseItemId: null,
@@ -230,6 +239,9 @@ export const useScratchpad = create<ScratchpadState & Actions>((set, get) => ({
   },
   setShortcutsOpen: (shortcutsOpen) => set({ shortcutsOpen }),
   setEnvEditorOpen: (envEditorOpen) => set({ envEditorOpen }),
+  setImportExportOpen: (importExportOpen) => set({ importExportOpen }),
+  setSyncOpen: (syncOpen) => set({ syncOpen }),
+  setSyncTick: () => set({ syncTick: get().syncTick + 1 }),
   setSearchQuery: (searchQuery) => set({ searchQuery, sidebarView: "search" }),
   setUtility: (activeUtility) => set({ activeUtility, rightTab: "utility" }),
 

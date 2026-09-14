@@ -1,6 +1,8 @@
 import { ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { looksLikeEpoch, looksLikeJwt } from "@/lib/scratchpad/utilities";
+import { useScratchpad } from "@/lib/scratchpad/store";
 import { copyText, cn } from "@/lib/utils";
 
 const PREVIEW_LIMIT = 80;
@@ -67,6 +69,24 @@ function Node({
           {onExtract ? (
             <button type="button" className="hover:text-foreground" onClick={() => onExtract(path, value)}>
               extract
+            </button>
+          ) : null}
+          {looksLikeJwt(String(value ?? "")) ? (
+            <button
+              type="button"
+              className="hover:text-foreground"
+              onClick={() => useScratchpad.getState().setUtility("jwt")}
+            >
+              jwt
+            </button>
+          ) : null}
+          {looksLikeEpoch(value) ? (
+            <button
+              type="button"
+              className="hover:text-foreground"
+              onClick={() => useScratchpad.getState().setUtility("epoch")}
+            >
+              epoch
             </button>
           ) : null}
         </span>

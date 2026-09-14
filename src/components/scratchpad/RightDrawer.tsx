@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useScratchpad } from "@/lib/scratchpad/store";
 import { formatDiff, structuralDiff } from "@/lib/scratchpad/jsondiff";
 import { parseJsonSafe } from "@/lib/scratchpad/jsonpath";
@@ -95,30 +96,32 @@ function MetaPane({
       </p>
       <p className="mt-5 text-2xs font-medium uppercase tracking-wider text-subtle">Compare responses</p>
       <div className="mt-2 grid grid-cols-2 gap-2">
-        <select
-          value={compareIds[0] ?? ""}
-          onChange={(e) => setCompare(0, e.target.value || null)}
-          className="h-8 rounded-md border border-border bg-inset px-2 text-xs"
-        >
-          <option value="">Left</option>
-          {history.slice(0, 20).map((h) => (
-            <option key={h.id} value={h.id}>
-              {h.method} {h.response.status} {h.name}
-            </option>
-          ))}
-        </select>
-        <select
-          value={compareIds[1] ?? ""}
-          onChange={(e) => setCompare(1, e.target.value || null)}
-          className="h-8 rounded-md border border-border bg-inset px-2 text-xs"
-        >
-          <option value="">Right</option>
-          {history.slice(0, 20).map((h) => (
-            <option key={h.id} value={h.id}>
-              {h.method} {h.response.status} {h.name}
-            </option>
-          ))}
-        </select>
+        <Select value={compareIds[0] ?? "none"} onValueChange={(v) => setCompare(0, v === "none" ? null : v)}>
+          <SelectTrigger aria-label="Compare left">
+            <SelectValue placeholder="Left" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Left</SelectItem>
+            {history.slice(0, 20).map((h) => (
+              <SelectItem key={h.id} value={h.id}>
+                {h.method} {h.response.status} {h.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={compareIds[1] ?? "none"} onValueChange={(v) => setCompare(1, v === "none" ? null : v)}>
+          <SelectTrigger aria-label="Compare right">
+            <SelectValue placeholder="Right" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Right</SelectItem>
+            {history.slice(0, 20).map((h) => (
+              <SelectItem key={h.id} value={h.id}>
+                {h.method} {h.response.status} {h.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       {diff ? (
         <div>

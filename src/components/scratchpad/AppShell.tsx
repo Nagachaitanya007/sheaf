@@ -1,20 +1,32 @@
-import { FileCode2, FolderTree, Maximize2, Moon, PanelLeft, PanelRight, Send, Square, Sun } from "lucide-react";
+import { FileCode2, FolderTree, Maximize2, Moon, MoreHorizontal, PanelLeft, PanelRight, Send, Square, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Group, Panel, Separator as ResizeHandle } from "react-resizable-panels";
 import { Toaster } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { IconTip } from "@/components/ui/icon-tip";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { applyAppearance, readAppearance, toggleAppearance, type Appearance } from "@/lib/scratchpad/appearance";
 import { cancelSend, runDocument, sendItem } from "@/lib/scratchpad/send";
+import { formatSyncTime, readSyncPrefs } from "@/lib/scratchpad/sync-prefs";
 import { useScratchpad } from "@/lib/scratchpad/store";
 import { isMac } from "@/lib/utils";
 import { BrandMark } from "./BrandMark";
 import { CenterWorkspace } from "./CenterWorkspace";
 import { CommandPalette } from "./CommandPalette";
 import { EnvEditor } from "./EnvEditor";
+import { ImportExportDialog } from "./ImportExportDialog";
 import { RightDrawer } from "./RightDrawer";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { Sidebar } from "./Sidebar";
+import { SyncDialog } from "./SyncDialog";
 
 export function AppShell() {
   const hydrated = useScratchpad((s) => s.hydrated);
@@ -60,6 +72,8 @@ export function AppShell() {
         <CommandPalette onToggleAppearance={cycleAppearance} />
         <EnvEditor />
         <ShortcutsDialog />
+        <ImportExportDialog />
+        <SyncDialog />
         <Toaster theme={appearance} position="bottom-right" richColors={false} />
         <Keybindings />
       </div>
@@ -114,56 +128,64 @@ function TitleBar({
         <p className="hidden truncate text-2xs text-subtle sm:block">{workspace.name} · stored locally</p>
       </div>
       <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
-        <select
-          value={activeEnvironmentId ?? ""}
-          onChange={(e) => setEnvironment(e.target.value)}
-          className="h-8 max-w-[140px] rounded-sm border border-border bg-elevated px-2 text-xs"
-          aria-label="Environment"
-        >
-          {environments.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.name}
-            </option>
-          ))}
-        </select>
+        <Select value={activeEnvironmentId ?? ""} onValueChange={(id) => setEnvironment(id)}>
+          <SelectTrigger className="h-8 max-w-[148px]" aria-label="Environment">
+            <SelectValue placeholder="Environment" />
+          </SelectTrigger>
+          <SelectContent>
+            {environments.map((e) => (
+              <SelectItem key={e.id} value={e.id}>
+                {e.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Button size="sm" variant="ghost" className="hidden sm:inline-flex" onClick={() => setEnvEditorOpen(true)}>
           Vars
         </Button>
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          className="hidden md:inline-flex"
-          aria-label="Toggle navigator"
-          onClick={() => useScratchpad.getState().setSidebarHidden(!useScratchpad.getState().sidebarHidden)}
-        >
-          <PanelLeft className="size-3.5" />
-        </Button>
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          className="hidden md:inline-flex"
-          aria-label="Toggle inspector"
-          onClick={() => useScratchpad.getState().setInspectorHidden(!useScratchpad.getState().inspectorHidden)}
-        >
-          <PanelRight className="size-3.5" />
-        </Button>
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          className="hidden md:inline-flex"
-          aria-label="Focus mode"
-          onClick={() => useScratchpad.getState().setFocusMode(!useScratchpad.getState().focusMode)}
-        >
-          <Maximize2 className="size-3.5" />
-        </Button>
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          aria-label={appearance === "dark" ? "Switch to light" : "Switch to dark"}
-          onClick={onToggleAppearance}
-        >
-          {appearance === "dark" ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}
-        </Button>
+        <IconTip label="Toggle sidebar">
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            className="hidden md:inline-flex"
+            aria-label="Toggle sidebar"
+            onClick={() => useScratchpad.getState().setSidebarHidden(!useScratchpad.getState().sidebarHidden)}
+          >
+            <PanelLeft className="size-3.5" />
+          </Button>
+        </IconTip>
+        <IconTip label="Toggle inspector">
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            className="hidden md:inline-flex"
+            aria-label="Toggle inspector"
+            onClick={() => useScratchpad.getState().setInspectorHidden(!useScratchpad.getState().inspectorHidden)}
+          >
+            <PanelRight className="size-3.5" />
+          </Button>
+        </IconTip>
+        <IconTip label="Focus mode">
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            className="hidden md:inline-flex"
+            aria-label="Focus mode"
+            onClick={() => useScratchpad.getState().setFocusMode(!useScratchpad.getState().focusMode)}
+          >
+            <Maximize2 className="size-3.5" />
+          </Button>
+        </IconTip>
+        <IconTip label="Toggle theme">
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label={appearance === "dark" ? "Switch to light" : "Switch to dark"}
+            onClick={onToggleAppearance}
+          >
+            {appearance === "dark" ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}
+          </Button>
+        </IconTip>
         <Button
           size="sm"
           variant="secondary"
@@ -172,20 +194,45 @@ function TitleBar({
         >
           {mod}K
         </Button>
+        <DropdownMenu>
+          <IconTip label="More actions">
+            <DropdownMenuTrigger asChild>
+              <Button size="icon-sm" variant="ghost" aria-label="More actions">
+                <MoreHorizontal className="size-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+          </IconTip>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={() => useScratchpad.getState().setImportExportOpen(true)}>
+              Import / export
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => useScratchpad.getState().setSyncOpen(true)}>
+              Sync
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => setEnvEditorOpen(true)}>Variables</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setCommandOpen(true)}>Command palette</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         {item?.kind === "request" ? (
           sendState === "sending" ? (
-            <Button size="sm" variant="ghost" onClick={() => cancelSend()}>
-              <Square className="size-3.5" />
-            </Button>
+            <IconTip label="Cancel request">
+              <Button size="sm" variant="ghost" aria-label="Cancel request" onClick={() => cancelSend()}>
+                <Square className="size-3.5" />
+              </Button>
+            </IconTip>
           ) : (
-            <Button
-              size="sm"
-              variant="send"
-              onClick={() => void sendItem(item)}
-              className="sm:hidden"
-            >
-              <Send className="size-3.5" />
-            </Button>
+            <IconTip label="Run request">
+              <Button
+                size="sm"
+                variant="send"
+                onClick={() => void sendItem(item)}
+                className="sm:hidden"
+                aria-label="Run request"
+              >
+                <Send className="size-3.5" />
+              </Button>
+            </IconTip>
           )
         ) : item?.kind === "investigation" || item?.kind === "note" ? (
           sendState === "sending" ? (
@@ -291,11 +338,25 @@ function StatusBar() {
   const env = useScratchpad((s) => s.environments.find((e) => e.id === s.activeEnvironmentId));
   const sendState = useScratchpad((s) => s.sendState);
   const online = useScratchpad((s) => s.online);
+  const syncTick = useScratchpad((s) => s.syncTick);
+  const prefs = readSyncPrefs();
+  void syncTick;
+  const syncLabel = !online
+    ? "Offline"
+    : prefs.lastError === "conflict"
+      ? "Conflict · resolve"
+      : prefs.lastError
+        ? "Sync error"
+        : !prefs.enabled
+          ? "Local only"
+          : formatSyncTime(prefs.lastSyncedAt);
   return (
     <footer className="hidden h-7 shrink-0 items-center gap-3 border-t border-border bg-surface px-3 font-mono text-2xs text-muted md:flex">
       <span>{dirty ? "Saving…" : "Saved locally"}</span>
       <span className="text-border-strong">·</span>
-      <span className={online ? "" : "text-warn"}>App {online ? "online" : "offline"}</span>
+      <button type="button" className="hover:text-foreground" onClick={() => useScratchpad.getState().setSyncOpen(true)}>
+        {syncLabel}
+      </button>
       <span>{items.filter((i) => i.kind === "request").length} requests</span>
       <span>{history.length} history</span>
       <span className="ml-auto">{env?.name ?? "no env"}</span>

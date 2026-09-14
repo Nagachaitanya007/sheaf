@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { IconTip } from "@/components/ui/icon-tip";
 import { searchWorkspace } from "@/lib/scratchpad/search";
 import { useScratchpad } from "@/lib/scratchpad/store";
 import type { Item } from "@/lib/scratchpad/types";
@@ -74,11 +75,13 @@ function WorkspaceTree() {
       <div className="flex items-center justify-between px-3 py-2">
         <p className="text-2xs font-medium uppercase tracking-[0.14em] text-subtle">Index</p>
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="icon-sm" variant="ghost" aria-label="Add">
-              <Plus className="size-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
+          <IconTip label="Add">
+            <DropdownMenuTrigger asChild>
+              <Button size="icon-sm" variant="ghost" aria-label="Add">
+                <Plus className="size-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+          </IconTip>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onSelect={() => addItem("investigation", null)}>New investigation</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => addItem("request", null)}>New request</DropdownMenuItem>
@@ -86,6 +89,9 @@ function WorkspaceTree() {
             <DropdownMenuItem onSelect={() => addItem("folder", null)}>New folder</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => addCollection()}>New collection</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => useScratchpad.getState().setImportExportOpen(true)}>Import / export</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => useScratchpad.getState().setSyncOpen(true)}>Sync</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -222,15 +228,17 @@ function RowMenu({
 }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="mr-1 hidden size-7 items-center justify-center rounded-sm text-subtle hover:text-foreground group-hover:flex"
-          aria-label="Item menu"
-        >
-          <MoreHorizontal className="size-3.5" />
-        </button>
-      </DropdownMenuTrigger>
+      <IconTip label="More actions">
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className="mr-1 hidden size-7 items-center justify-center rounded-md text-subtle hover:text-foreground group-hover:flex"
+            aria-label="More actions"
+          >
+            <MoreHorizontal className="size-3.5" />
+          </button>
+        </DropdownMenuTrigger>
+      </IconTip>
       <DropdownMenuContent align="end">
         {extras.map((e) => (
           <DropdownMenuItem key={e.label} onSelect={e.run}>

@@ -9,6 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { IconTip } from "@/components/ui/icon-tip";
 import { Input } from "@/components/ui/input";
 import { applyExtractions, blockKey, parseExtractDirectives } from "@/lib/scratchpad/extract";
 import { toCurl } from "@/lib/scratchpad/http";
@@ -17,16 +18,19 @@ import { documentHttpBlocks, runDocument, sendParsed, cancelSend } from "@/lib/s
 import { useScratchpad } from "@/lib/scratchpad/store";
 import type { BlockResult, HttpResponse, Item, ParsedRequest } from "@/lib/scratchpad/types";
 import { cn, copyText, downloadText, formatBytes, formatDuration } from "@/lib/utils";
+import { CodeBlock } from "./CodeBlock";
 import { ResponseView } from "./ResponseView";
 
 export function MarkdownDoc({
   source,
   item,
   className,
+  onInsertHttp,
 }: {
   source: string;
   item?: Item;
   className?: string;
+  onInsertHttp?: () => void;
 }) {
   const blocks = useMemo(() => parseMarkdown(source || ""), [source]);
   const selectItem = useScratchpad((s) => s.selectItem);
@@ -37,9 +41,14 @@ export function MarkdownDoc({
       <div className="px-8 py-12">
         <p className="font-serif text-xl font-semibold tracking-tight">Write what you're trying to understand.</p>
         <p className="mt-2 max-w-md text-sm leading-relaxed text-muted">
-          Markdown, executable HTTP, and observations live in the same document. Add a fenced <code className="md-code">http</code> block
-          and press Run.
+          Markdown, executable HTTP, and observations live in the same document. Type <code className="md-code">/http</code> in
+          Edit, or insert a request below.
         </p>
+        {onInsertHttp ? (
+          <Button size="sm" variant="send" className="mt-4" onClick={onInsertHttp}>
+            Insert HTTP request
+          </Button>
+        ) : null}
       </div>
     );
   }
@@ -113,7 +122,7 @@ export function MarkdownDoc({
         }
         if (block.type === "table") {
           return (
-            <div key={i} className="mb-4 overflow-auto border border-border">
+            <div key={i} className="mb-4 overflow-auto rounded-lg border border-border">
               <table className="w-full text-left text-xs">
                 <thead className="bg-elevated text-foreground">
                   <tr>
@@ -139,9 +148,9 @@ export function MarkdownDoc({
         }
         if (block.type === "code") {
           return (
-            <pre key={i} className="mb-4 overflow-auto border border-border bg-inset px-3 py-2 font-mono text-xs leading-relaxed text-foreground">
-              {block.code}
-            </pre>
+            <div key={i} className="mb-4 overflow-auto rounded-lg border border-border bg-inset px-3 py-2">
+              <CodeBlock code={block.code} lang={block.lang} />
+            </div>
           );
         }
         if (block.type === "http") {
@@ -218,11 +227,13 @@ function HttpCard({
           </Button>
         )}
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="icon-sm" variant="ghost" aria-label="Block actions">
-              <MoreHorizontal className="size-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
+          <IconTip label="More actions">
+            <DropdownMenuTrigger asChild>
+              <Button size="icon-sm" variant="ghost" aria-label="More actions">
+                <MoreHorizontal className="size-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+          </IconTip>
           <DropdownMenuContent align="end">
             <DropdownMenuItem
               onSelect={() => {
@@ -258,7 +269,9 @@ function HttpCard({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <pre className="overflow-auto border-t border-border px-3 py-2 font-mono text-xs leading-relaxed text-muted">{raw}</pre>
+      <div className="overflow-auto border-t border-border px-3 py-2">
+        <CodeBlock code={raw} lang="http" className="text-muted" />
+      </div>
       {result ? (
         <div className="border-t border-border">
           <button

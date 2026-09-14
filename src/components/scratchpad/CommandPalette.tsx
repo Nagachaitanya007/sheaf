@@ -1,11 +1,11 @@
 import { Command } from "cmdk";
 import { useEffect, useMemo, type ReactNode } from "react";
 import { toast } from "sonner";
-import { exportHttpBundle, toPortable } from "@/lib/scratchpad/import-export";
-import { isPortable, useScratchpad } from "@/lib/scratchpad/store";
+import { HTTP_SNIPPET } from "@/lib/scratchpad/slash";
 import { UTILITIES } from "@/lib/scratchpad/utilities";
 import { cancelSend, runDocument, sendItem } from "@/lib/scratchpad/send";
-import { downloadText } from "@/lib/utils";
+import { useScratchpad } from "@/lib/scratchpad/store";
+import { insertHttpInto } from "./NotePane";
 
 export function CommandPalette({ onToggleAppearance }: { onToggleAppearance?: () => void }) {
   const open = useScratchpad((s) => s.commandOpen);
@@ -47,7 +47,7 @@ export function CommandPalette({ onToggleAppearance }: { onToggleAppearance?: ()
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-overlay px-3 pt-[12vh]" onClick={() => setOpen(false)}>
       <Command
         label="Command palette"
-        className="w-full max-w-xl overflow-hidden rounded-md border border-border-strong bg-elevated shadow-[var(--shadow-pop)]"
+        className="w-full max-w-xl overflow-hidden rounded-lg border border-border-strong bg-elevated shadow-[var(--shadow-pop)]"
         onClick={(e) => e.stopPropagation()}
       >
         <Command.Input
@@ -81,6 +81,31 @@ export function CommandPalette({ onToggleAppearance }: { onToggleAppearance?: ()
             <Item onSelect={() => { addItem("note", null); setOpen(false); }}>New note</Item>
             <Item onSelect={() => { addItem("folder", null); setOpen(false); }}>New folder</Item>
             <Item onSelect={() => { addCollection(); setOpen(false); }}>New collection</Item>
+            <Item
+              onSelect={() => {
+                const item = items.find((i) => i.id === activeItemId);
+                if (item && (item.kind === "investigation" || item.kind === "note")) {
+                  insertHttpInto(item);
+                  toast.success("HTTP block inserted — switch to Edit if you don't see it");
+                } else toast.error("Open an investigation first");
+                setOpen(false);
+              }}
+            >
+              Insert HTTP Block
+            </Item>
+            <Item
+              onSelect={() => {
+                const item = items.find((i) => i.id === activeItemId);
+                if (item && (item.kind === "investigation" || item.kind === "note")) {
+                  const content = `${item.content ?? ""}\n${HTTP_SNIPPET}`;
+                  useScratchpad.getState().updateRequest(item.id, { content });
+                  toast.success("Type /request in Edit to pick a saved request");
+                } else toast.error("Open an investigation first");
+                setOpen(false);
+              }}
+            >
+              Insert Existing Request
+            </Item>
           </Command.Group>
           <Command.Group heading="Run" className="px-1 py-1 text-2xs font-medium uppercase tracking-wider text-subtle">
             <Item
@@ -130,6 +155,43 @@ export function CommandPalette({ onToggleAppearance }: { onToggleAppearance?: ()
             <Item onSelect={() => { setSidebarView("search"); setOpen(false); }}>Search workspace</Item>
             <Item onSelect={() => { setEnvEditorOpen(true); setOpen(false); }}>Switch environment / vars</Item>
             <Item onSelect={() => { setShortcutsOpen(true); setOpen(false); }}>Keyboard shortcuts</Item>
+            <Item
+              onSelect={() => {
+                const itemId = useScratchpad.getState().activeItemId;
+                if (!itemId || !lastResponse) toast.error("Run a request first");
+                else {
+                  useScratchpad.getState().setExtractedVar(itemId, "value", lastResponse.body.slice(0, 200), "investigation");
+                  toast.success("Extracted body snippet as {{value}} — use the JSON tree for a field");
+                }
+                setOpen(false);
+              }}
+            >
+              Extract Variable
+            </Item>
+            <Item
+              onSelect={() => {
+                useScratchpad.getState().setRightTab("meta");
+                setOpen(false);
+              }}
+            >
+              Compare Responses
+            </Item>
+            <Item
+              onSelect={() => {
+                setUtility("json-format");
+                setOpen(false);
+              }}
+            >
+              Open JSON Utility
+            </Item>
+            <Item
+              onSelect={() => {
+                setUtility("jwt");
+                setOpen(false);
+              }}
+            >
+              Open JWT Inspector
+            </Item>
           </Command.Group>
           <Command.Group heading="Utilities" className="px-1 py-1 text-2xs font-medium uppercase tracking-wider text-subtle">
             {UTILITIES.map((u) => (
@@ -147,71 +209,35 @@ export function CommandPalette({ onToggleAppearance }: { onToggleAppearance?: ()
           <Command.Group heading="Import / export" className="px-1 py-1 text-2xs font-medium uppercase tracking-wider text-subtle">
             <Item
               onSelect={() => {
-                const snap = useScratchpad.getState().snapshot();
-                downloadText("sheaf-workspace.json", JSON.stringify(toPortable(snap), null, 2), "application/json");
-                toast.success("Workspace exported");
+                useScratchpad.getState().setImportExportOpen(true);
                 setOpen(false);
               }}
             >
-              Export workspace JSON
+              Import
             </Item>
             <Item
               onSelect={() => {
-                const snap = useScratchpad.getState().snapshot();
-                downloadText("sheaf.http", exportHttpBundle(snap), "text/plain");
-                toast.success("HTTP file exported");
+                useScratchpad.getState().setImportExportOpen(true);
                 setOpen(false);
               }}
             >
-              Export HTTP file
+              Export
             </Item>
             <Item
               onSelect={() => {
-                const item = items.find((i) => i.id === activeItemId);
-                if (item?.kind === "note") {
-                  downloadText(`${item.name.replace(/\s+/g, "-")}.md`, item.content ?? "", "text/markdown");
-                  toast.success("Markdown exported");
-                } else toast.error("Open a note first");
+                useScratchpad.getState().setSyncOpen(true);
                 setOpen(false);
               }}
             >
-              Export active note as Markdown
+              Enable Sync
             </Item>
             <Item
               onSelect={() => {
-                if (!lastResponse) {
-                  toast.error("No response to export");
-                } else {
-                  downloadText("response.json", lastResponse.body, "application/json");
-                  toast.success("Response exported");
-                }
+                useScratchpad.getState().setSyncOpen(true);
                 setOpen(false);
               }}
             >
-              Export response JSON
-            </Item>
-            <Item
-              onSelect={() => {
-                const input = document.createElement("input");
-                input.type = "file";
-                input.accept = "application/json";
-                input.onchange = async () => {
-                  const file = input.files?.[0];
-                  if (!file) return;
-                  try {
-                    const data = JSON.parse(await file.text()) as unknown;
-                    if (!isPortable(data)) throw new Error("Not a Sheaf workspace");
-                    useScratchpad.getState().importPortable(data);
-                    toast.success("Workspace imported");
-                  } catch (err) {
-                    toast.error(err instanceof Error ? err.message : "Import failed");
-                  }
-                };
-                input.click();
-                setOpen(false);
-              }}
-            >
-              Import workspace JSON
+              Sync Now
             </Item>
             <Item
               onSelect={() => {

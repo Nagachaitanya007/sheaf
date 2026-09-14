@@ -108,12 +108,12 @@ html.dark {
   --text-xl: 1.25rem;
   --text-2xl: 1.5rem;
 
-  --radius-xs: 2px;
-  --radius-sm: 3px;
-  --radius-md: 4px;
-  --radius-lg: 6px;
-  --radius-xl: 8px;
-  --radius-2xl: 10px;
+  --radius-xs: 3px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+  --radius-2xl: 12px;
 
   --shadow-border: var(--sheaf-shadow-border);
   --shadow-pop: var(--sheaf-shadow-pop);
@@ -269,7 +269,7 @@ code {
   overflow: hidden;
   border: 1px solid var(--color-border);
   background: color-mix(in oklab, var(--color-inset) 70%, var(--color-background));
-  border-radius: 4px;
+  border-radius: 8px;
 }
 
 .http-block pre {
@@ -353,6 +353,42 @@ code {
   background: var(--color-elevated) !important;
   border: 1px solid var(--color-border) !important;
   color: var(--color-foreground) !important;
-  border-radius: 4px !important;
+  border-radius: 6px !important;
   box-shadow: var(--shadow-pop) !important;
+}
+
+.md-code, .md-doc table {
+  border-radius: 6px;
+}
+
+.tok { font: inherit; }
+.tok-plain { color: var(--color-foreground); }
+.tok-comment { color: var(--color-subtle); font-style: italic; }
+.tok-string { color: var(--color-success); }
+.tok-number { color: var(--color-warn); }
+.tok-keyword, .tok-method { color: var(--color-accent); font-weight: 650; }
+.tok-key, .tok-header { color: var(--color-info); }
+.tok-url {
+  color: var(--color-foreground);
+  text-decoration: underline;
+  text-decoration-color: var(--color-border-strong);
+  text-underline-offset: 2px;
+}
+.tok-variable {
+  color: var(--color-accent);
+  background: color-mix(in oklab, var(--color-accent) 12%, transparent);
+  border-radius: 3px;
+  padding: 0 0.15em;
+}
+.tok-punct { color: var(--color-muted); }
+.tok-boolean { color: var(--color-warn); }
+.tok-null { color: var(--color-subtle); }
+
+.code-hl {
+  margin: 0;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.55;
+  white-space: pre;
 }
