@@ -166,7 +166,7 @@ export function NotePane({ item }: { item: Item }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-0 border-b border-border px-2">
+      <div className="flex min-w-0 items-center gap-1.5 border-b border-border px-2">
         <button type="button" data-active={mode === "preview"} className="rail-tab" onClick={() => setMode("preview")}>
           Preview
         </button>
@@ -179,7 +179,7 @@ export function NotePane({ item }: { item: Item }) {
             <IconTip label="Insert HTTP request">
               <button
                 type="button"
-                className="text-2xs text-muted hover:text-foreground"
+                className="shrink-0 rounded-md px-2 py-1 text-2xs font-medium text-muted transition-colors hover:bg-elevated hover:text-foreground"
                 onClick={() => insertHttpInto(item)}
               >
                 Insert HTTP
@@ -188,7 +188,7 @@ export function NotePane({ item }: { item: Item }) {
             <IconTip label="Insert block">
               <button
                 type="button"
-                className="text-2xs text-muted hover:text-foreground"
+                className="shrink-0 rounded-md px-2 py-1 font-mono text-2xs text-muted transition-colors hover:bg-elevated hover:text-foreground"
                 aria-label="Insert block"
                 onClick={() =>
                   setSlash({
@@ -208,9 +208,9 @@ export function NotePane({ item }: { item: Item }) {
           <span className="ml-auto text-2xs text-subtle">Type / for blocks · HTTP is executable</span>
         )}
         {investigation && mode === "preview" ? (
-          <span className="ml-auto hidden text-2xs text-subtle sm:inline">/ inserts blocks · click a request to edit</span>
+          <span className="ml-auto min-w-0 truncate pl-2 text-right text-2xs text-subtle">/ inserts blocks · click a request to edit</span>
         ) : investigation ? (
-          <span className="ml-auto text-2xs text-subtle">/ inserts blocks · ⌘⇧Enter runs</span>
+          <span className="ml-auto min-w-0 truncate pl-2 text-right text-2xs text-subtle">/ inserts blocks · ⌘⇧Enter runs</span>
         ) : null}
       </div>
       {mode === "edit" ? (
