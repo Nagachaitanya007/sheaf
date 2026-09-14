@@ -19,7 +19,7 @@ export function CenterWorkspace() {
   const active = items.find((i) => i.id === activeItemId);
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background">
+    <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-background">
       <div className="flex h-9 shrink-0 items-center overflow-x-auto border-b border-border">
         {tabs.length === 0 ? (
           <p className="px-3 text-xs text-muted">No open tabs</p>

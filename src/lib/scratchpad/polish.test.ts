@@ -343,6 +343,8 @@ test("markdown H1 becomes the document title and ignores fences and HTTP comment
   assert.match(replaced, /^# Authentication Research\n/);
   const fenced = replaceMarkdownTitle("```\n# not title\n```\n\ntext", "Nope");
   assert.equal(fenced.includes("# Nope"), false);
+  const legacy = replaceMarkdownTitle("Legacy note without a heading", "Recovered title");
+  assert.equal(legacy, "# Recovered title\n\nLegacy note without a heading");
 });
 
 test("Open in JSON contextual input formats immediately", () => {

@@ -34,8 +34,9 @@ export function Sidebar() {
   const view = useScratchpad((s) => s.sidebarView);
   const setView = useScratchpad((s) => s.setSidebarView);
   return (
-    <div className="flex h-full min-h-0 flex-col bg-surface">
-      <div className="flex items-center border-b border-border px-1">
+    <div className="sidebar-rail flex h-full min-h-0 flex-col bg-surface">
+      <div className="sidebar-surface flex h-full min-h-0 min-w-0 flex-col bg-surface">
+      <div className="sidebar-tabs flex items-center border-b border-border px-1">
         <SideTab active={view === "workspace"} onClick={() => setView("workspace")} icon={<Folder className="size-3.5" />} label="Workspace" />
         <SideTab active={view === "history"} onClick={() => setView("history")} icon={<History className="size-3.5" />} label="History" />
         <SideTab active={view === "search"} onClick={() => setView("search")} icon={<Search className="size-3.5" />} label="Search" />
@@ -43,6 +44,7 @@ export function Sidebar() {
       {view === "workspace" ? <WorkspaceTree /> : null}
       {view === "history" ? <HistoryList /> : null}
       {view === "search" ? <SearchList /> : null}
+      </div>
     </div>
   );
 }
@@ -61,7 +63,7 @@ function SideTab({
   return (
     <button type="button" onClick={onClick} data-active={active} className="rail-tab flex-1">
       {icon}
-      <span className="hidden sm:inline">{label}</span>
+      <span className="rail-tab-label truncate">{label}</span>
     </button>
   );
 }
@@ -132,7 +134,23 @@ function WorkspaceTree() {
         initial={rename?.name ?? ""}
         submitLabel="Rename"
         existing={
-          rename?.type === "collection" ? collections.filter((c) => c.id !== rename.id).map((c) => c.name) : []
+          rename?.type === "collection"
+            ? collections.filter((c) => c.id !== rename.id).map((c) => c.name)
+            : rename
+              ? (() => {
+                  const target = items.find((i) => i.id === rename.id);
+                  return target
+                    ? items
+                        .filter(
+                          (i) =>
+                            i.id !== target.id &&
+                            i.collectionId === target.collectionId &&
+                            i.parentId === target.parentId,
+                        )
+                        .map((i) => i.name)
+                    : [];
+                })()
+              : []
         }
         onOpenChange={(next) => {
           if (!next) setRename(null);
@@ -253,7 +271,7 @@ function ItemNode({
       >
         {item.kind === "request" ? (
           <Badge tone={methodTone(item.method ?? "GET")} className="min-w-11 justify-center px-1">
-            {item.method ?? "GET"}
+            <span className="method-full">{item.method ?? "GET"}</span><span className="method-compact">{(item.method ?? "GET").slice(0, 1)}</span>
           </Badge>
         ) : item.kind === "investigation" ? (
           <FileSearch className="size-3.5 text-accent" />
@@ -342,92 +360,3 @@ function HistoryList() {
               }}
             >
               <Badge tone={methodTone(h.method)} className="mt-0.5 min-w-11 justify-center px-1">
-                {h.method}
-              </Badge>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm">{h.name}</span>
-                <span className="block truncate font-mono text-2xs text-subtle">{h.url}</span>
-                <span className="font-mono text-2xs text-muted">
-                  {h.response.status || "ERR"} · {formatRelative(h.createdAt)}
-                </span>
-              </span>
-              <span
-                role="button"
-                tabIndex={0}
-                className="rounded-sm p-1 text-subtle hover:text-danger"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  deleteHistory(h.id);
-                }}
-              >
-                <Trash2 className="size-3" />
-              </span>
-            </button>
-          ))
-        )}
-      </div>
-    </div>
-  );
-}
-
-function SearchList() {
-  const query = useScratchpad((s) => s.searchQuery);
-  const setQuery = useScratchpad((s) => s.setSearchQuery);
-  const collections = useScratchpad((s) => s.collections);
-  const items = useScratchpad((s) => s.items);
-  const history = useScratchpad((s) => s.history);
-  const selectItem = useScratchpad((s) => s.selectItem);
-  const setLastResponse = useScratchpad((s) => s.setLastResponse);
-  const hits = useMemo(
-    () => searchWorkspace(query, collections, items, history),
-    [query, collections, items, history],
-  );
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="p-2">
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search investigations, notes, requests"
-          autoFocus
-        />
-      </div>
-      <div className="min-h-0 flex-1 overflow-auto px-1 pb-3">
-        {query && hits.length === 0 ? (
-          <p className="px-3 py-8 text-center text-xs text-muted">No matches.</p>
-        ) : null}
-        {hits.map((hit) => (
-          <button
-            key={hit.id}
-            type="button"
-            className="mb-0.5 flex w-full flex-col items-start px-2 py-1.5 text-left hover:bg-elevated"
-            onClick={() => {
-              if (hit.kind === "history") {
-                const h = history.find((x) => x.id === hit.historyId);
-                if (h) setLastResponse(h.requestId ?? null, h.response);
-              }
-              if (hit.itemId) selectItem(hit.itemId);
-            }}
-          >
-            <span className="flex items-center gap-1.5 text-sm">
-              {hit.kind === "request" ? (
-                <Globe className="size-3 text-muted" />
-              ) : hit.kind === "investigation" ? (
-                <FileSearch className="size-3 text-accent" />
-              ) : (
-                <FileText className="size-3 text-muted" />
-              )}
-              {hit.title}
-            </span>
-            <span className="line-clamp-2 font-mono text-2xs text-subtle">{hit.snippet}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-export function useSidebarFilterState() {
-  return useState("");
-}

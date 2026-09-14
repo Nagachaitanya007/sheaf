@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { Environment } from "@/lib/scratchpad/types";
 import { Eye, EyeOff, Lock, LockOpen, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,7 @@ import { IconTip } from "@/components/ui/icon-tip";
 import { nameError, normalizeName, secretInputType } from "@/lib/scratchpad/names";
 import { useScratchpad } from "@/lib/scratchpad/store";
 import { NameDialog } from "./NameDialog";
+import { cn } from "@/lib/utils";
 
 export function EnvEditor() {
   const open = useScratchpad((s) => s.envEditorOpen);
@@ -19,11 +21,13 @@ export function EnvEditor() {
   const removeEnvVar = useScratchpad((s) => s.removeEnvVar);
   const addEnvironment = useScratchpad((s) => s.addEnvironment);
   const renameEnvironment = useScratchpad((s) => s.renameEnvironment);
+  const deleteEnvironment = useScratchpad((s) => s.deleteEnvironment);
   const env = environments.find((e) => e.id === activeEnvironmentId) ?? environments[0];
   const [creating, setCreating] = useState(false);
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const [envName, setEnvName] = useState(env?.name ?? "");
   const [envNameError, setEnvNameError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Environment | null>(null);
 
   useEffect(() => {
     setEnvName(env?.name ?? "");
@@ -46,24 +50,46 @@ export function EnvEditor() {
   return (
     <>
       <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-h-[80vh] overflow-auto">
+      <DialogContent className="max-h-[82vh] max-w-2xl overflow-auto p-4 sm:p-5">
         <DialogTitle>Environments</DialogTitle>
         <DialogDescription>
           Variables such as {"{{baseUrl}}"} and {"{{token}}"} resolve from the active environment. Secret values stay in this browser.
         </DialogDescription>
-        <div className="mt-3 flex flex-wrap gap-1">
-          {environments.map((e) => (
-            <Button
-              key={e.id}
-              size="sm"
-              variant={e.id === env?.id ? "secondary" : "ghost"}
-              onClick={() => setEnvironment(e.id)}
+        <div className="mt-3 flex items-center gap-1.5 overflow-x-auto rounded-lg border border-border bg-inset p-1">
+          {environments.map((environment) => (
+            <div
+              key={environment.id}
+              className={cn(
+                "group flex min-w-0 shrink-0 items-center rounded-md border",
+                environment.id === env?.id ? "border-accent/40 bg-background" : "border-transparent",
+              )}
             >
-              {e.name}
-            </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="max-w-40 justify-start px-2.5"
+                onClick={() => setEnvironment(environment.id)}
+              >
+                <span className="truncate" title={environment.name}>{environment.name}</span>
+              </Button>
+              {environments.length > 1 ? (
+                <IconTip label="Delete environment">
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    className="mr-0.5 shrink-0 text-subtle hover:text-danger"
+                    aria-label={"Delete " + environment.name}
+                    onClick={() => setDeleteTarget(environment)}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </IconTip>
+              ) : null}
+            </div>
           ))}
-          <Button size="sm" variant="ghost" onClick={() => setCreating(true)}>
-            Add environment
+          <Button size="sm" variant="ghost" className="shrink-0 px-2.5" onClick={() => setCreating(true)}>
+            + Add
           </Button>
         </div>
         {env ? (
@@ -171,6 +197,27 @@ export function EnvEditor() {
           </div>
         ) : null}
       </DialogContent>
+      </Dialog>
+      <Dialog open={Boolean(deleteTarget)} onOpenChange={(next) => !next && setDeleteTarget(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogTitle>Delete environment?</DialogTitle>
+          <DialogDescription>
+            This removes {deleteTarget?.name ? <strong>{deleteTarget.name}</strong> : "this environment"} and all of its variables from this browser. This cannot be undone.
+          </DialogDescription>
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                if (!deleteTarget) return;
+                deleteEnvironment(deleteTarget.id);
+                setDeleteTarget(null);
+              }}
+            >
+              Delete environment
+            </Button>
+          </div>
+        </DialogContent>
       </Dialog>
       <NameDialog
         open={creating}

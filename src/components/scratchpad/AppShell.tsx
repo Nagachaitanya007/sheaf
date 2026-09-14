@@ -263,10 +263,10 @@ function DesktopPanes() {
   const hideRight = inspectorHidden || focusMode;
   return (
     <>
-      <div className="hidden h-full md:block">
+      <div className="hidden h-full min-w-0 overflow-hidden md:block">
         <Group
           orientation="horizontal"
-          className="h-full"
+          className="h-full min-w-0 overflow-hidden"
           key={`${hideLeft}-${hideRight}`}
           defaultLayout={
             hideLeft && hideRight

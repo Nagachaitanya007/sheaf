@@ -71,5 +71,7 @@ export function replaceMarkdownTitle(source: string, title: string): string {
     replaced = true;
     return clean;
   });
-  return replaced ? lines.join("\n") : source;
+  if (replaced) return lines.join("\n");
+  // Keep item metadata and Markdown in sync for legacy notes without an H1.
+  return `# ${clean}\n\n${source.replace(/^\n+/, "")}`;
 }
