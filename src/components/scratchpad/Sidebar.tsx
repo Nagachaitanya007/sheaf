@@ -66,10 +66,9 @@ function SideTab({
         data-active={active}
         aria-label={label}
         title={label}
-        className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-md px-1.5 py-1.5 text-xs text-muted transition-colors hover:bg-elevated hover:text-foreground data-[active=true]:bg-inset data-[active=true]:text-foreground"
+        className="flex min-w-0 flex-1 items-center justify-center rounded-md px-2 py-1.5 text-muted transition-colors hover:bg-elevated hover:text-foreground data-[active=true]:bg-inset data-[active=true]:text-foreground"
       >
         {icon}
-        <span className="min-w-0 truncate">{label}</span>
       </button>
     </IconTip>
   );
