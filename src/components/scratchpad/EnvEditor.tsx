@@ -207,7 +207,7 @@ export function EnvEditor() {
           <div className="mt-4 flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setDeleteTarget(null)}>Cancel</Button>
             <Button
-              variant="destructive"
+              variant="danger"
               onClick={() => {
                 if (!deleteTarget) return;
                 deleteEnvironment(deleteTarget.id);
