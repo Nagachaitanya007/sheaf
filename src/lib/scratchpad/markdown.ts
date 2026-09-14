@@ -1,5 +1,5 @@
-import { parseSingleRequest } from "./http";
-import type { ParsedRequest } from "./types";
+import { parseSingleRequest } from "./http.ts";
+import type { ParsedRequest } from "./types.ts";
 
 export type MdBlock =
   | { type: "heading"; level: number; text: string }
@@ -164,7 +164,11 @@ export function inlineToHtml(text: string): string {
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/(^|[^\*])\*([^*\n]+)\*(?!\*)/g, "$1<em>$2</em>")
     .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>')
-    .replace(/!\[([^\]]*)\]\((https?:[^)\s]+)\)/g, '<img alt="$1" src="$2" />');
+    .replace(/!\[([^\]]*)\]\((https?:[^)\s]+)\)/g, '<img alt="$1" src="$2" />')
+    .replace(
+      /\[\[([^\]]+)\]\]/g,
+      '<button type="button" class="wiki-link" data-wiki="$1">$1</button>',
+    );
 }
 
 export function escapeHtml(text: string): string {

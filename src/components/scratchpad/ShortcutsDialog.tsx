@@ -8,10 +8,11 @@ const ROWS = [
   ["Quick open", "P"],
   ["Search workspace", "Shift F"],
   ["Send request", "Enter"],
+  ["Run investigation", "Shift Enter"],
   ["New request", "N"],
   ["New note", "Shift N"],
   ["Utilities", "Shift U"],
-  ["Toggle preview / edit", "E"],
+  ["Focus mode", "Shift D"],
 ];
 
 export function ShortcutsDialog() {

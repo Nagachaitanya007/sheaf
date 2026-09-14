@@ -1,6 +1,7 @@
 import { ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
-import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { copyText, cn } from "@/lib/utils";
 
 const PREVIEW_LIMIT = 80;
 const ARRAY_PAGE = 50;
@@ -22,25 +23,53 @@ function tone(value: unknown): string {
   return "text-muted";
 }
 
+function pathJoin(base: string, key: string): string {
+  if (base === "$") return /^[0-9]+$/.test(key) ? `$[${key}]` : `$.${key}`;
+  return /^[0-9]+$/.test(key) ? `${base}[${key}]` : `${base}.${key}`;
+}
+
 function Node({
   name,
   value,
   depth,
+  path,
+  onExtract,
 }: {
   name: string;
   value: unknown;
   depth: number;
+  path: string;
+  onExtract?: (path: string, value: unknown) => void;
 }) {
   const isExpandable = value !== null && typeof value === "object";
   const [open, setOpen] = useState(depth < 2);
   const [shown, setShown] = useState(ARRAY_PAGE);
 
+  async function copy(kind: "value" | "path") {
+    const text = kind === "path" ? path : typeof value === "string" ? value : JSON.stringify(value);
+    const ok = await copyText(text ?? "");
+    toast[ok ? "success" : "error"](ok ? (kind === "path" ? "Copied path" : "Copied value") : "Copy failed");
+  }
+
   if (!isExpandable) {
     return (
-      <div className="flex gap-2 py-px font-mono text-xs leading-5">
+      <div className="group flex gap-2 py-px font-mono text-xs leading-5">
         <span className="text-accent">{name}</span>
         <span className="text-subtle">:</span>
-        <span className={cn("break-all", tone(value))}>{preview(value)}</span>
+        <span className={cn("min-w-0 break-all", tone(value))}>{preview(value)}</span>
+        <span className="ml-auto hidden gap-1 text-2xs text-subtle group-hover:flex">
+          <button type="button" className="hover:text-foreground" onClick={() => void copy("value")}>
+            copy
+          </button>
+          <button type="button" className="hover:text-foreground" onClick={() => void copy("path")}>
+            path
+          </button>
+          {onExtract ? (
+            <button type="button" className="hover:text-foreground" onClick={() => onExtract(path, value)}>
+              extract
+            </button>
+          ) : null}
+        </span>
       </div>
     );
   }
@@ -64,7 +93,7 @@ function Node({
       {open ? (
         <div className="ml-2 border-l border-border pl-3">
           {visible.map(([k, v]) => (
-            <Node key={k} name={k} value={v} depth={depth + 1} />
+            <Node key={k} name={k} value={v} depth={depth + 1} path={pathJoin(path, k)} onExtract={onExtract} />
           ))}
           {entries.length > shown ? (
             <button
@@ -81,7 +110,15 @@ function Node({
   );
 }
 
-export function JsonTree({ raw, className }: { raw: string; className?: string }) {
+export function JsonTree({
+  raw,
+  className,
+  onExtract,
+}: {
+  raw: string;
+  className?: string;
+  onExtract?: (path: string, value: unknown) => void;
+}) {
   const parsed = useMemo(() => {
     try {
       return { ok: true as const, value: JSON.parse(raw) as unknown };
@@ -98,7 +135,7 @@ export function JsonTree({ raw, className }: { raw: string; className?: string }
   }
   return (
     <div className={cn("px-2 py-2", className)}>
-      <Node name="root" value={parsed.value} depth={0} />
+      <Node name="root" value={parsed.value} depth={0} path="$" onExtract={onExtract} />
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { exportHttpBundle, toPortable } from "@/lib/scratchpad/import-export";
 import { isPortable, useScratchpad } from "@/lib/scratchpad/store";
 import { UTILITIES } from "@/lib/scratchpad/utilities";
-import { sendItem } from "@/lib/scratchpad/send";
+import { cancelSend, runDocument, sendItem } from "@/lib/scratchpad/send";
 import { downloadText } from "@/lib/utils";
 
 export function CommandPalette() {
@@ -37,7 +37,7 @@ export function CommandPalette() {
   }, [open, setOpen]);
 
   const files = useMemo(
-    () => items.filter((i) => i.kind === "request" || i.kind === "note"),
+    () => items.filter((i) => i.kind === "request" || i.kind === "note" || i.kind === "investigation"),
     [items],
   );
 
@@ -68,12 +68,13 @@ export function CommandPalette() {
                 }}
                 className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm data-[selected=true]:bg-elevated"
               >
-                <span className="text-muted">{f.kind === "request" ? f.method : "MD"}</span>
+                <span className="text-muted">{f.kind === "request" ? f.method : f.kind === "investigation" ? "INV" : "MD"}</span>
                 {f.name}
               </Command.Item>
             ))}
           </Command.Group>
           <Command.Group heading="Create" className="px-1 py-1 text-2xs font-medium uppercase tracking-wider text-subtle">
+            <Item onSelect={() => { addItem("investigation", null); setOpen(false); }}>New investigation</Item>
             <Item onSelect={() => { addItem("request", null); setOpen(false); }}>New request</Item>
             <Item onSelect={() => { addItem("note", null); setOpen(false); }}>New note</Item>
             <Item onSelect={() => { addItem("folder", null); setOpen(false); }}>New folder</Item>
@@ -87,11 +88,37 @@ export function CommandPalette() {
                 setOpen(false);
               }}
             >
-              Send active request
+              Run request
+            </Item>
+            <Item
+              onSelect={() => {
+                const item = items.find((i) => i.id === activeItemId);
+                if (item && (item.kind === "investigation" || item.kind === "note")) void runDocument(item);
+                setOpen(false);
+              }}
+            >
+              Run investigation
+            </Item>
+            <Item
+              onSelect={() => {
+                cancelSend();
+                setOpen(false);
+              }}
+            >
+              Cancel running request
+            </Item>
+            <Item onSelect={() => { useScratchpad.getState().setFocusMode(!useScratchpad.getState().focusMode); setOpen(false); }}>
+              Toggle focus mode
+            </Item>
+            <Item onSelect={() => { useScratchpad.getState().setSidebarHidden(!useScratchpad.getState().sidebarHidden); setOpen(false); }}>
+              Toggle navigator
+            </Item>
+            <Item onSelect={() => { useScratchpad.getState().setInspectorHidden(!useScratchpad.getState().inspectorHidden); setOpen(false); }}>
+              Toggle inspector
             </Item>
             <Item onSelect={() => { setSidebarView("history"); setOpen(false); }}>Open history</Item>
             <Item onSelect={() => { setSidebarView("search"); setOpen(false); }}>Search workspace</Item>
-            <Item onSelect={() => { setEnvEditorOpen(true); setOpen(false); }}>Edit environments</Item>
+            <Item onSelect={() => { setEnvEditorOpen(true); setOpen(false); }}>Switch environment / vars</Item>
             <Item onSelect={() => { setShortcutsOpen(true); setOpen(false); }}>Keyboard shortcuts</Item>
           </Command.Group>
           <Command.Group heading="Utilities" className="px-1 py-1 text-2xs font-medium uppercase tracking-wider text-subtle">

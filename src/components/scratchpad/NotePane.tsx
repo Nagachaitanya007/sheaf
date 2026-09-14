@@ -3,11 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { Item } from "@/lib/scratchpad/types";
 import { useScratchpad } from "@/lib/scratchpad/store";
-import { MarkdownDoc } from "./MarkdownDoc";
+import { InvestigationToolbar, MarkdownDoc } from "./MarkdownDoc";
 
 export function NotePane({ item }: { item: Item }) {
   const updateRequest = useScratchpad((s) => s.updateRequest);
   const [mode, setMode] = useState<"preview" | "edit">("preview");
+  const investigation = item.kind === "investigation";
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-1 border-b border-border px-3 py-1.5">
@@ -17,7 +18,16 @@ export function NotePane({ item }: { item: Item }) {
         <Button size="sm" variant={mode === "edit" ? "secondary" : "ghost"} onClick={() => setMode("edit")}>
           Edit
         </Button>
-        <span className="ml-auto text-2xs text-subtle">Markdown · HTTP blocks are executable</span>
+        {investigation ? (
+          <div className="ml-2">
+            <InvestigationToolbar item={item} />
+          </div>
+        ) : (
+          <span className="ml-auto text-2xs text-subtle">Markdown · HTTP blocks are executable</span>
+        )}
+        {investigation && mode === "preview" ? null : investigation ? (
+          <span className="ml-auto text-2xs text-subtle">Ctrl/⌘ Shift Enter runs the sequence</span>
+        ) : null}
       </div>
       {mode === "edit" ? (
         <Textarea
@@ -27,7 +37,7 @@ export function NotePane({ item }: { item: Item }) {
         />
       ) : (
         <div className="min-h-0 flex-1 overflow-auto">
-          <MarkdownDoc source={item.content ?? ""} />
+          <MarkdownDoc source={item.content ?? ""} item={item} />
         </div>
       )}
     </div>

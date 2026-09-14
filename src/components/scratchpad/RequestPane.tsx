@@ -1,11 +1,11 @@
-import { Play } from "lucide-react";
+import { Play, Square } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { HTTP_METHODS, type BodyType, type HttpMethod, type Item } from "@/lib/scratchpad/types";
-import { sendItem } from "@/lib/scratchpad/send";
+import { HTTP_METHODS, type AuthType, type BodyType, type HttpMethod, type Item } from "@/lib/scratchpad/types";
+import { cancelSend, sendItem } from "@/lib/scratchpad/send";
 import { serializeHttp, toCurl } from "@/lib/scratchpad/http";
 import { useScratchpad } from "@/lib/scratchpad/store";
 import { copyText } from "@/lib/utils";
@@ -45,13 +45,12 @@ export function RequestPane({ item }: { item: Item }) {
             }}
           />
           <Button
-            variant="send"
+            variant={sending ? "ghost" : "send"}
             className="h-9 px-4"
-            disabled={sending}
-            onClick={() => void sendItem(item)}
+            onClick={() => (sending ? cancelSend() : void sendItem(item))}
           >
-            <Play className="size-3.5" />
-            {sending ? "Sending" : "Send"}
+            {sending ? <Square className="size-3.5" /> : <Play className="size-3.5" />}
+            {sending ? "Cancel" : "Send"}
           </Button>
         </div>
       </div>
@@ -59,6 +58,7 @@ export function RequestPane({ item }: { item: Item }) {
         <div className="border-b border-border px-3 py-1.5">
           <TabsList>
             <TabsTrigger value="headers">Headers</TabsTrigger>
+            <TabsTrigger value="auth">Auth</TabsTrigger>
             <TabsTrigger value="body">Body</TabsTrigger>
             <TabsTrigger value="raw">Raw HTTP</TabsTrigger>
           </TabsList>
@@ -95,6 +95,9 @@ export function RequestPane({ item }: { item: Item }) {
           <Button size="sm" variant="ghost" className="mt-2" onClick={() => addHeaderRow(item.id)}>
             Add header
           </Button>
+        </TabsContent>
+        <TabsContent value="auth" className="min-h-0 flex-1 overflow-auto p-3">
+          <AuthEditor item={item} />
         </TabsContent>
         <TabsContent value="body" className="flex min-h-0 flex-1 flex-col p-3">
           <div className="mb-2 flex flex-wrap gap-1">
@@ -143,6 +146,8 @@ export function RequestPane({ item }: { item: Item }) {
                   url: item.url ?? "",
                   headers: item.headers,
                   body: item.body,
+                  bodyType: item.bodyType,
+                  formFields: item.formFields,
                 }),
               );
               toast[ok ? "success" : "error"](ok ? "Copied curl" : "Copy failed");
@@ -199,6 +204,69 @@ function FormFields({ item }: { item: Item }) {
       >
         Add field
       </Button>
+    </div>
+  );
+}
+
+function AuthEditor({ item }: { item: Item }) {
+  const setAuth = useScratchpad((s) => s.setAuth);
+  const updateRequest = useScratchpad((s) => s.updateRequest);
+  const auth = item.auth ?? { type: "none" as AuthType };
+  return (
+    <div className="flex max-w-lg flex-col gap-3">
+      <p className="text-xs text-muted">
+        Applied at send time. Generated headers are not stored in the header table. Secrets are masked in history — this is not encryption.
+      </p>
+      <div className="flex flex-wrap gap-1">
+        {(["none", "bearer", "basic", "apikey"] as AuthType[]).map((t) => (
+          <Button key={t} size="sm" variant={auth.type === t ? "secondary" : "ghost"} onClick={() => setAuth(item.id, { ...auth, type: t })}>
+            {t}
+          </Button>
+        ))}
+      </div>
+      {auth.type === "bearer" ? (
+        <Input
+          className="font-mono"
+          placeholder="{{token}} or a bearer value"
+          value={auth.token ?? ""}
+          onChange={(e) => setAuth(item.id, { ...auth, token: e.target.value })}
+        />
+      ) : null}
+      {auth.type === "basic" ? (
+        <div className="grid grid-cols-2 gap-2">
+          <Input placeholder="username" value={auth.username ?? ""} onChange={(e) => setAuth(item.id, { ...auth, username: e.target.value })} />
+          <Input
+            placeholder="password"
+            type="password"
+            value={auth.password ?? ""}
+            onChange={(e) => setAuth(item.id, { ...auth, password: e.target.value })}
+          />
+        </div>
+      ) : null}
+      {auth.type === "apikey" ? (
+        <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
+          <Input placeholder="Header or query name" value={auth.key ?? ""} onChange={(e) => setAuth(item.id, { ...auth, key: e.target.value })} />
+          <Input placeholder="{{apiKey}}" className="font-mono" value={auth.value ?? ""} onChange={(e) => setAuth(item.id, { ...auth, value: e.target.value })} />
+          <select
+            className="h-8 rounded-md border border-border bg-elevated px-2 text-xs"
+            value={auth.in ?? "header"}
+            onChange={(e) => setAuth(item.id, { ...auth, in: e.target.value as "header" | "query" })}
+          >
+            <option value="header">Header</option>
+            <option value="query">Query</option>
+          </select>
+        </div>
+      ) : null}
+      <label className="flex items-center gap-2 text-xs text-muted">
+        Timeout (ms)
+        <Input
+          className="h-8 w-28"
+          type="number"
+          min={1000}
+          value={item.timeoutMs ?? 30000}
+          onChange={(e) => updateRequest(item.id, { timeoutMs: Number(e.target.value) || 30000 })}
+        />
+      </label>
     </div>
   );
 }

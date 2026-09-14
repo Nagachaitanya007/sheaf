@@ -1,36 +1,63 @@
-import { Play } from "lucide-react";
+import { Check, Copy, Download, MoreHorizontal, Play, Plus, Square } from "lucide-react";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Badge, methodTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { applyExtractions, blockKey, parseExtractDirectives } from "@/lib/scratchpad/extract";
+import { toCurl } from "@/lib/scratchpad/http";
 import { escapeHtml, inlineToHtml, parseMarkdown } from "@/lib/scratchpad/markdown";
-import { sendParsed } from "@/lib/scratchpad/send";
+import { documentHttpBlocks, runDocument, sendParsed, cancelSend } from "@/lib/scratchpad/send";
 import { useScratchpad } from "@/lib/scratchpad/store";
-import type { ParsedRequest } from "@/lib/scratchpad/types";
-import { cn } from "@/lib/utils";
+import type { BlockResult, HttpResponse, Item, ParsedRequest } from "@/lib/scratchpad/types";
+import { cn, copyText, downloadText, formatBytes, formatDuration } from "@/lib/utils";
+import { ResponseView } from "./ResponseView";
 
-function HttpCard({ request, raw }: { request: ParsedRequest; raw: string }) {
-  const sending = useScratchpad((s) => s.sendState === "sending");
-  return (
-    <div className="my-3 overflow-hidden rounded-lg border border-border bg-inset">
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-        <Badge tone={methodTone(request.method)}>{request.method}</Badge>
-        <code className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">{request.url}</code>
-        <Button size="sm" variant="send" disabled={sending} onClick={() => void sendParsed(request)}>
-          <Play className="size-3" />
-          Run
-        </Button>
-      </div>
-      <pre className="overflow-auto px-3 py-2 font-mono text-xs leading-relaxed text-muted">{raw}</pre>
-    </div>
-  );
-}
+export function MarkdownDoc({
+  source,
+  item,
+  className,
+}: {
+  source: string;
+  item?: Item;
+  className?: string;
+}) {
+  const blocks = useMemo(() => parseMarkdown(source || ""), [source]);
+  const selectItem = useScratchpad((s) => s.selectItem);
+  const items = useScratchpad((s) => s.items);
 
-export function MarkdownDoc({ source, className }: { source: string; className?: string }) {
-  const blocks = parseMarkdown(source || "");
   if (!blocks.length) {
-    return <p className="px-6 py-10 text-sm text-muted">Empty note. Switch to Edit to write Markdown.</p>;
+    return (
+      <div className="px-6 py-10">
+        <p className="text-sm font-medium text-foreground">Write what you're trying to understand.</p>
+        <p className="mt-1 max-w-md text-sm text-muted">
+          Markdown, executable HTTP, and observations live in the same document. Add a fenced <code className="md-code">http</code> block
+          and press Run.
+        </p>
+      </div>
+    );
   }
+
+  let httpIndex = 0;
   return (
-    <article className={cn("px-4 py-4 text-sm leading-relaxed text-foreground sm:px-6 sm:py-5", className)}>
+    <article
+      className={cn("px-4 py-4 text-sm leading-relaxed text-foreground sm:px-6 sm:py-5", className)}
+      onClick={(e) => {
+        const target = (e.target as HTMLElement).closest("[data-wiki]") as HTMLElement | null;
+        if (!target) return;
+        const name = target.getAttribute("data-wiki");
+        if (!name) return;
+        const hit = items.find((i) => i.name.toLowerCase() === name.toLowerCase());
+        if (hit) selectItem(hit.id);
+        else toast.error(`No item named “${name}”`);
+      }}
+    >
       {blocks.map((block, i) => {
         if (block.type === "heading") {
           const Tag = (`h${Math.min(block.level, 4)}` as unknown) as "h1";
@@ -71,14 +98,14 @@ export function MarkdownDoc({ source, className }: { source: string; className?:
           const List = block.ordered ? "ol" : "ul";
           return (
             <List key={i} className={cn("mb-3 space-y-1 pl-5 text-muted", block.ordered ? "list-decimal" : "list-disc")}>
-              {block.items.map((item, j) => (
+              {block.items.map((it, j) => (
                 <li key={j} className="text-pretty">
-                  {item.checked != null ? (
+                  {it.checked != null ? (
                     <span className="mr-2 inline-flex size-3.5 items-center justify-center rounded-sm border border-border text-2xs">
-                      {item.checked ? "✓" : ""}
+                      {it.checked ? "✓" : ""}
                     </span>
                   ) : null}
-                  <span dangerouslySetInnerHTML={{ __html: inlineToHtml(item.text) }} />
+                  <span dangerouslySetInnerHTML={{ __html: inlineToHtml(it.text) }} />
                 </li>
               ))}
             </List>
@@ -118,10 +145,239 @@ export function MarkdownDoc({ source, className }: { source: string; className?:
           );
         }
         if (block.type === "http") {
-          return <HttpCard key={i} request={block.request} raw={block.raw} />;
+          const index = httpIndex;
+          httpIndex += 1;
+          const key = blockKey(block.request, index);
+          const result = item?.blockResults?.find((b) => b.blockKey === key);
+          return (
+            <HttpCard
+              key={i}
+              item={item}
+              request={block.request}
+              raw={block.raw}
+              blockKey={key}
+              index={index}
+              result={result}
+            />
+          );
         }
         return <pre key={i}>{escapeHtml(JSON.stringify(block))}</pre>;
       })}
     </article>
+  );
+}
+
+function HttpCard({
+  item,
+  request,
+  raw,
+  blockKey: key,
+  index,
+  result,
+}: {
+  item?: Item;
+  request: ParsedRequest;
+  raw: string;
+  blockKey: string;
+  index: number;
+  result?: BlockResult;
+}) {
+  const sending = useScratchpad((s) => s.sendState === "sending");
+  const addItem = useScratchpad((s) => s.addItem);
+  const updateRequest = useScratchpad((s) => s.updateRequest);
+  const setExtractedVar = useScratchpad((s) => s.setExtractedVar);
+  const setUtility = useScratchpad((s) => s.setUtility);
+  const [open, setOpen] = useState(true);
+  const [path, setPath] = useState("$.accessToken");
+  const extracts = parseExtractDirectives(raw, key);
+  const parsedRequest = { ...request, extracts, name: request.name ?? key };
+
+  return (
+    <div className="my-4 overflow-hidden rounded-lg border border-border bg-inset">
+      <div className="flex items-center gap-2 px-3 py-2">
+        <Badge tone={methodTone(request.method)}>{request.method}</Badge>
+        <code className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">{request.name ? `${request.name} · ${request.url}` : request.url}</code>
+        {result ? (
+          <Badge tone={result.response.error ? "danger" : result.response.status >= 400 ? "warn" : "success"}>
+            {result.response.error ? result.response.errorKind ?? "ERR" : result.response.status}
+          </Badge>
+        ) : null}
+        {sending ? (
+          <Button size="sm" variant="ghost" onClick={() => cancelSend()}>
+            <Square className="size-3" />
+            Cancel
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            variant="send"
+            onClick={() => void sendParsed(parsedRequest, { sourceItem: item, attachToId: item?.id, blockKey: key })}
+          >
+            <Play className="size-3" />
+            Run
+          </Button>
+        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="icon-sm" variant="ghost" aria-label="Block actions">
+              <MoreHorizontal className="size-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onSelect={() => {
+                if (item) void runDocument(item, index);
+              }}
+            >
+              Run from here
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={async () => {
+                const ok = await copyText(toCurl({ method: request.method, url: request.url, headers: request.headers, body: request.body }));
+                toast[ok ? "success" : "error"](ok ? "Copied curl" : "Copy failed");
+              }}
+            >
+              <Copy className="size-3.5" /> Copy curl
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => {
+                const id = addItem("request", item?.parentId ?? null, item?.collectionId);
+                if (!id) return;
+                updateRequest(id, {
+                  method: request.method,
+                  url: request.url,
+                  headers: request.headers,
+                  body: request.body,
+                  bodyType: request.bodyType,
+                });
+                toast.success("Saved as request");
+              }}
+            >
+              <Plus className="size-3.5" /> Save as request
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      <pre className="overflow-auto border-t border-border px-3 py-2 font-mono text-xs leading-relaxed text-muted">{raw}</pre>
+      {result ? (
+        <div className="border-t border-border">
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-2xs text-muted hover:text-foreground"
+            onClick={() => setOpen((v) => !v)}
+          >
+            <span>
+              {result.response.error
+                ? result.response.error
+                : `${result.response.status} ${result.response.statusText} · ${formatDuration(result.response.timeMs)} · ${formatBytes(result.response.size)}`}
+            </span>
+            {result.response.transport === "proxy" ? <Badge tone="muted">proxy</Badge> : null}
+            {result.response.truncated ? <Badge tone="warn">truncated</Badge> : null}
+            <span className="ml-auto">{open ? "Hide" : "Show"}</span>
+          </button>
+          {open ? (
+            <div className="max-h-[420px] overflow-auto border-t border-border">
+              <ResponseView response={result.response} compact />
+              {item ? (
+                <ExtractBar
+                  item={item}
+                  blockKey={key}
+                  response={result.response}
+                  path={path}
+                  setPath={setPath}
+                  onExtract={(p) => {
+                    const applied = applyExtractions(result.response, [{ as: "token", path: p, scope: "investigation", blockKey: key }]);
+                    const name = p.split(".").pop()?.replace(/[^\w]/g, "") || "value";
+                    const value = applied[0]?.value;
+                    if (value == null) {
+                      const retry = applyExtractions(result.response, [{ as: name, path: p, scope: "investigation", blockKey: key }]);
+                      if (!retry[0]) {
+                        toast.error("Nothing at that path");
+                        return;
+                      }
+                      setExtractedVar(item.id, name, retry[0].value, "investigation");
+                      toast.success(`{{${name}}} ← ${retry[0].value.slice(0, 48)}`);
+                      return;
+                    }
+                    setExtractedVar(item.id, name === "token" && p.includes("accessToken") ? "token" : name, value, "investigation");
+                    toast.success(`Extracted ${name}`);
+                  }}
+                  onUtility={() => setUtility("json-format")}
+                />
+              ) : null}
+              {result.extracted && Object.keys(result.extracted).length ? (
+                <p className="px-3 py-2 text-2xs text-success">
+                  Extracted {Object.entries(result.extracted).map(([k, v]) => `${k}=${v.slice(0, 24)}`).join(" · ")}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ExtractBar({
+  item,
+  response,
+  path,
+  setPath,
+  onExtract,
+  onUtility,
+}: {
+  item: Item;
+  blockKey: string;
+  response: HttpResponse;
+  path: string;
+  setPath: (v: string) => void;
+  onExtract: (path: string) => void;
+  onUtility: () => void;
+}) {
+  void item;
+  void response;
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-t border-border px-3 py-2">
+      <span className="text-2xs text-subtle">Extract</span>
+      <Input value={path} onChange={(e) => setPath(e.target.value)} className="h-7 w-44 font-mono text-2xs" />
+      <Button size="sm" variant="secondary" onClick={() => onExtract(path)}>
+        <Check className="size-3" />
+        As variable
+      </Button>
+      <Button size="sm" variant="ghost" onClick={onUtility}>
+        Open in utilities
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => {
+          downloadText("response.json", response.body, "application/json");
+        }}
+      >
+        <Download className="size-3" />
+        Download
+      </Button>
+    </div>
+  );
+}
+
+export function InvestigationToolbar({ item }: { item: Item }) {
+  const sending = useScratchpad((s) => s.sendState === "sending");
+  const blocks = documentHttpBlocks(item.content ?? "");
+  return (
+    <div className="flex items-center gap-2">
+      {sending ? (
+        <Button size="sm" variant="ghost" onClick={() => cancelSend()}>
+          <Square className="size-3" />
+          Stop
+        </Button>
+      ) : (
+        <Button size="sm" variant="send" onClick={() => void runDocument(item)} disabled={!blocks.length}>
+          <Play className="size-3" />
+          Run sequence
+        </Button>
+      )}
+      <span className="text-2xs text-subtle">{blocks.length} HTTP blocks</span>
+    </div>
   );
 }

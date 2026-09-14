@@ -1,10 +1,10 @@
-import { FileCode2, FolderTree, PanelRight, Send } from "lucide-react";
+import { FileCode2, FolderTree, Maximize2, PanelLeft, PanelRight, Send, Square } from "lucide-react";
 import { useEffect } from "react";
 import { Group, Panel, Separator as ResizeHandle } from "react-resizable-panels";
 import { Toaster } from "sonner";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { sendItem } from "@/lib/scratchpad/send";
+import { cancelSend, runDocument, sendItem } from "@/lib/scratchpad/send";
 import { useScratchpad } from "@/lib/scratchpad/store";
 import { isMac } from "@/lib/utils";
 import { BrandMark } from "./BrandMark";
@@ -25,7 +25,15 @@ export function AppShell() {
         void useScratchpad.getState().hydrate();
       }
     }, 50);
-    return () => window.clearTimeout(failsafe);
+    const onOnline = () => useScratchpad.getState().setOnline(true);
+    const onOffline = () => useScratchpad.getState().setOnline(false);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => {
+      window.clearTimeout(failsafe);
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
   }, [hydrate]);
 
   if (!hydrated) return <ShellFrame />;
@@ -105,6 +113,33 @@ function TitleBar() {
           Vars
         </Button>
         <Button
+          size="icon-sm"
+          variant="ghost"
+          className="hidden md:inline-flex"
+          aria-label="Toggle navigator"
+          onClick={() => useScratchpad.getState().setSidebarHidden(!useScratchpad.getState().sidebarHidden)}
+        >
+          <PanelLeft className="size-3.5" />
+        </Button>
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          className="hidden md:inline-flex"
+          aria-label="Toggle inspector"
+          onClick={() => useScratchpad.getState().setInspectorHidden(!useScratchpad.getState().inspectorHidden)}
+        >
+          <PanelRight className="size-3.5" />
+        </Button>
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          className="hidden md:inline-flex"
+          aria-label="Focus mode"
+          onClick={() => useScratchpad.getState().setFocusMode(!useScratchpad.getState().focusMode)}
+        >
+          <Maximize2 className="size-3.5" />
+        </Button>
+        <Button
           size="sm"
           variant="secondary"
           className="hidden md:inline-flex"
@@ -113,15 +148,30 @@ function TitleBar() {
           {mod}K
         </Button>
         {item?.kind === "request" ? (
-          <Button
-            size="sm"
-            variant="send"
-            disabled={sendState === "sending"}
-            onClick={() => void sendItem(item)}
-            className="sm:hidden"
-          >
-            <Send className="size-3.5" />
-          </Button>
+          sendState === "sending" ? (
+            <Button size="sm" variant="ghost" onClick={() => cancelSend()}>
+              <Square className="size-3.5" />
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="send"
+              onClick={() => void sendItem(item)}
+              className="sm:hidden"
+            >
+              <Send className="size-3.5" />
+            </Button>
+          )
+        ) : item?.kind === "investigation" || item?.kind === "note" ? (
+          sendState === "sending" ? (
+            <Button size="sm" variant="ghost" onClick={() => cancelSend()}>
+              <Square className="size-3.5" />
+            </Button>
+          ) : (
+            <Button size="sm" variant="send" className="hidden sm:inline-flex" onClick={() => void runDocument(item)}>
+              Run
+            </Button>
+          )
         ) : null}
       </div>
     </header>
@@ -130,21 +180,47 @@ function TitleBar() {
 
 function DesktopPanes() {
   const mobilePane = useScratchpad((s) => s.mobilePane);
+  const sidebarHidden = useScratchpad((s) => s.sidebarHidden);
+  const inspectorHidden = useScratchpad((s) => s.inspectorHidden);
+  const focusMode = useScratchpad((s) => s.focusMode);
+  const hideLeft = sidebarHidden || focusMode;
+  const hideRight = inspectorHidden || focusMode;
   return (
     <>
       <div className="hidden h-full md:block">
-        <Group orientation="horizontal" className="h-full" defaultLayout={{ sidebar: 22, center: 48, right: 30 }}>
-          <Panel id="sidebar" minSize="14%" className="min-w-0">
-            <Sidebar />
-          </Panel>
-          <ResizeHandle className="w-1 bg-border hover:bg-accent/40 data-active:bg-accent/60" />
+        <Group
+          orientation="horizontal"
+          className="h-full"
+          key={`${hideLeft}-${hideRight}`}
+          defaultLayout={
+            hideLeft && hideRight
+              ? { center: 100 }
+              : hideLeft
+                ? { center: 70, right: 30 }
+                : hideRight
+                  ? { sidebar: 24, center: 76 }
+                  : { sidebar: 22, center: 48, right: 30 }
+          }
+        >
+          {!hideLeft ? (
+            <>
+              <Panel id="sidebar" minSize="14%" className="min-w-0">
+                <Sidebar />
+              </Panel>
+              <ResizeHandle className="w-1 bg-border hover:bg-accent/40 data-active:bg-accent/60" />
+            </>
+          ) : null}
           <Panel id="center" minSize="30%" className="min-w-0">
             <CenterWorkspace />
           </Panel>
-          <ResizeHandle className="w-1 bg-border hover:bg-accent/40 data-active:bg-accent/60" />
-          <Panel id="right" minSize="20%" className="min-w-0">
-            <RightDrawer />
-          </Panel>
+          {!hideRight ? (
+            <>
+              <ResizeHandle className="w-1 bg-border hover:bg-accent/40 data-active:bg-accent/60" />
+              <Panel id="right" minSize="20%" className="min-w-0">
+                <RightDrawer />
+              </Panel>
+            </>
+          ) : null}
         </Group>
       </div>
       <div className="h-full md:hidden">
@@ -188,10 +264,12 @@ function StatusBar() {
   const dirty = useScratchpad((s) => s.dirty);
   const env = useScratchpad((s) => s.environments.find((e) => e.id === s.activeEnvironmentId));
   const sendState = useScratchpad((s) => s.sendState);
+  const online = useScratchpad((s) => s.online);
   return (
     <footer className="hidden h-7 shrink-0 items-center gap-3 border-t border-border bg-surface px-3 text-2xs text-muted md:flex">
       <span>{dirty ? "Saving…" : "Saved locally"}</span>
       <span className="text-border-strong">·</span>
+      <span className={online ? "" : "text-warn"}>App {online ? "online" : "offline"}</span>
       <span>{items.filter((i) => i.kind === "request").length} requests</span>
       <span>{history.length} history</span>
       <span className="ml-auto">{env?.name ?? "no env"}</span>
@@ -237,9 +315,31 @@ function Keybindings() {
         const item = items.find((i) => i.id === activeItemId);
         if (item?.kind === "request") {
           e.preventDefault();
-          void sendItem(item);
+          if (e.shiftKey) cancelSend();
+          else void sendItem(item);
+        } else if (item && (item.kind === "investigation" || item.kind === "note") && e.shiftKey) {
+          e.preventDefault();
+          void runDocument(item);
         }
         return;
+      }
+      if (mod && e.key.toLowerCase() === "b" && e.shiftKey) {
+        e.preventDefault();
+        useScratchpad.getState().setSidebarHidden(!useScratchpad.getState().sidebarHidden);
+        return;
+      }
+      if (mod && e.key === "\\") {
+        e.preventDefault();
+        useScratchpad.getState().setInspectorHidden(!useScratchpad.getState().inspectorHidden);
+        return;
+      }
+      if (mod && e.shiftKey && e.key.toLowerCase() === "d") {
+        e.preventDefault();
+        useScratchpad.getState().setFocusMode(!useScratchpad.getState().focusMode);
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "w") {
+        /* keep default in browser preview */
       }
       if (mod && e.key.toLowerCase() === "n") {
         e.preventDefault();

@@ -8,6 +8,7 @@ import type {
   BodyType,
   Collection,
   Environment,
+  ExtractionScope,
   HeaderRow,
   HistoryEntry,
   HttpMethod,
@@ -18,10 +19,12 @@ import type {
   PersistSnapshot,
   RightTab,
   SidebarView,
+  UiPrefs,
   UtilityId,
   Variable,
 } from "./types";
 import { MAX_HISTORY } from "./types";
+import { upsertVar } from "./variables";
 
 export type SendState = "idle" | "sending";
 
@@ -52,6 +55,11 @@ export interface ScratchpadState {
   sendError: string | null;
   compareIds: [string | null, string | null];
   dirty: boolean;
+  focusMode: boolean;
+  sidebarHidden: boolean;
+  inspectorHidden: boolean;
+  online: boolean;
+  closedTabIds: string[];
 }
 
 interface Actions {
@@ -81,7 +89,7 @@ interface Actions {
   moveItem: (id: string, parentId: string | null, collectionId: string) => void;
   updateRequest: (
     id: string,
-    patch: Partial<Pick<Item, "method" | "url" | "headers" | "bodyType" | "body" | "formFields" | "content" | "tags">>,
+    patch: Partial<Pick<Item, "method" | "url" | "headers" | "bodyType" | "body" | "formFields" | "content" | "tags" | "auth" | "timeoutMs" | "variables">>,
   ) => void;
   upsertHeader: (itemId: string, header: HeaderRow) => void;
   addHeaderRow: (itemId: string) => void;
@@ -97,6 +105,15 @@ interface Actions {
   setLastResponse: (itemId: string | null, response: HttpResponse | null) => void;
   setSendState: (state: SendState, error?: string | null) => void;
   setCompare: (slot: 0 | 1, id: string | null) => void;
+  setBlockResult: (itemId: string, blockKey: string, response: HttpResponse & { extracted?: Record<string, string> }) => void;
+  setExtractedVar: (itemId: string, key: string, value: string, scope: ExtractionScope) => void;
+  setItemVariables: (itemId: string, variables: Variable[]) => void;
+  setAuth: (itemId: string, auth: Item["auth"]) => void;
+  setFocusMode: (on: boolean) => void;
+  setSidebarHidden: (on: boolean) => void;
+  setInspectorHidden: (on: boolean) => void;
+  setOnline: (on: boolean) => void;
+  reopenClosedTab: () => void;
   importPortable: (data: PortableWorkspace) => void;
   resetToSeed: () => void;
   snapshot: () => PersistSnapshot;
@@ -120,6 +137,9 @@ function applySnapshot(snap: PersistSnapshot): Partial<ScratchpadState> {
     lastResponse: null,
     lastResponseItemId: null,
     dirty: false,
+    focusMode: snap.ui?.focusMode ?? false,
+    sidebarHidden: snap.ui?.sidebarHidden ?? false,
+    inspectorHidden: snap.ui?.inspectorHidden ?? false,
   };
 }
 
@@ -150,6 +170,11 @@ export const useScratchpad = create<ScratchpadState & Actions>((set, get) => ({
   sendError: null,
   compareIds: [null, null],
   dirty: false,
+  focusMode: false,
+  sidebarHidden: false,
+  inspectorHidden: false,
+  online: typeof navigator === "undefined" ? true : navigator.onLine,
+  closedTabIds: [],
 
   hydrate: async () => {
     try {
@@ -187,6 +212,11 @@ export const useScratchpad = create<ScratchpadState & Actions>((set, get) => ({
       openTabIds: s.openTabIds,
       collapsedIds: s.collapsedIds,
       activeUtility: s.activeUtility,
+      ui: {
+        focusMode: s.focusMode,
+        sidebarHidden: s.sidebarHidden,
+        inspectorHidden: s.inspectorHidden,
+      },
     };
   },
 
@@ -215,10 +245,10 @@ export const useScratchpad = create<ScratchpadState & Actions>((set, get) => ({
   },
 
   closeTab: (id) => {
-    const { openTabIds, activeItemId } = get();
+    const { openTabIds, activeItemId, closedTabIds } = get();
     const next = openTabIds.filter((t) => t !== id);
     const nextActive = activeItemId === id ? (next[next.length - 1] ?? null) : activeItemId;
-    set({ openTabIds: next, activeItemId: nextActive });
+    set({ openTabIds: next, activeItemId: nextActive, closedTabIds: [id, ...closedTabIds].slice(0, 20) });
     get().persistSoon();
   },
 
@@ -280,12 +310,20 @@ export const useScratchpad = create<ScratchpadState & Actions>((set, get) => ({
     if (!colId) return "";
     const t = now();
     const siblings = items.filter((i) => i.collectionId === colId && i.parentId === parentId);
+    const kindPrefix = kind === "note" || kind === "investigation" ? (kind === "investigation" ? "inv" : "note") : kind === "folder" ? "fld" : "req";
     const base: Item = {
-      id: uid(kind === "note" ? "note" : kind === "folder" ? "fld" : "req"),
+      id: uid(kindPrefix),
       collectionId: colId,
       parentId,
       kind,
-      name: kind === "note" ? "Untitled note" : kind === "folder" ? "New folder" : "New request",
+      name:
+        kind === "investigation"
+          ? "New investigation"
+          : kind === "note"
+            ? "Untitled note"
+            : kind === "folder"
+              ? "New folder"
+              : "New request",
       order: siblings.length,
       tags: [],
       createdAt: t,
@@ -297,9 +335,16 @@ export const useScratchpad = create<ScratchpadState & Actions>((set, get) => ({
       base.headers = emptyHeaders();
       base.bodyType = "none";
       base.body = "";
+      base.auth = { type: "none" };
     }
     if (kind === "note") {
       base.content = "# Untitled\n\n";
+    }
+    if (kind === "investigation") {
+      base.content =
+        "# New investigation\n\nWrite what you're trying to understand.\n\n```http\n### Request\nGET {{baseUrl}}/\nAccept: application/json\n```\n";
+      base.variables = [];
+      base.tags = ["investigation"];
     }
     set({ items: [...items, base], activeItemId: kind === "folder" ? get().activeItemId : base.id });
     if (kind !== "folder") {
@@ -315,7 +360,7 @@ export const useScratchpad = create<ScratchpadState & Actions>((set, get) => ({
     if (!item) return null;
     const copy: Item = {
       ...item,
-      id: uid(item.kind === "note" ? "note" : item.kind === "folder" ? "fld" : "req"),
+      id: uid(item.kind === "note" ? "note" : item.kind === "investigation" ? "inv" : item.kind === "folder" ? "fld" : "req"),
       name: `${item.name} copy`,
       order: item.order + 1,
       createdAt: now(),
@@ -492,6 +537,75 @@ export const useScratchpad = create<ScratchpadState & Actions>((set, get) => ({
     set({ compareIds: next });
   },
 
+  setBlockResult: (itemId, key, response) => {
+    set({
+      items: get().items.map((i) => {
+        if (i.id !== itemId) return i;
+        const rest = (i.blockResults ?? []).filter((b) => b.blockKey !== key);
+        const next = [{ blockKey: key, response, extracted: response.extracted, ranAt: Date.now() }, ...rest].slice(0, 40);
+        return { ...i, blockResults: next, updatedAt: now() };
+      }),
+    });
+    get().persistSoon();
+  },
+
+  setExtractedVar: (itemId, key, value, scope) => {
+    if (scope === "environment") {
+      const envId = get().activeEnvironmentId;
+      if (!envId) return;
+      set({
+        environments: get().environments.map((e) =>
+          e.id === envId ? { ...e, variables: upsertVar(e.variables, key, value), updatedAt: now() } : e,
+        ),
+      });
+    } else if (scope === "request" || scope === "investigation") {
+      set({
+        items: get().items.map((i) =>
+          i.id === itemId ? { ...i, variables: upsertVar(i.variables, key, value), updatedAt: now() } : i,
+        ),
+      });
+    }
+    get().persistSoon();
+  },
+
+  setItemVariables: (itemId, variables) => {
+    set({
+      items: get().items.map((i) => (i.id === itemId ? { ...i, variables, updatedAt: now() } : i)),
+    });
+    get().persistSoon();
+  },
+
+  setAuth: (itemId, auth) => {
+    set({
+      items: get().items.map((i) => (i.id === itemId ? { ...i, auth, updatedAt: now() } : i)),
+    });
+    get().persistSoon();
+  },
+
+  setFocusMode: (focusMode) => {
+    set({
+      focusMode,
+      sidebarHidden: focusMode ? true : get().sidebarHidden,
+      inspectorHidden: focusMode ? true : get().inspectorHidden,
+    });
+    get().persistSoon();
+  },
+  setSidebarHidden: (sidebarHidden) => {
+    set({ sidebarHidden, focusMode: sidebarHidden && get().inspectorHidden });
+    get().persistSoon();
+  },
+  setInspectorHidden: (inspectorHidden) => {
+    set({ inspectorHidden, focusMode: inspectorHidden && get().sidebarHidden });
+    get().persistSoon();
+  },
+  setOnline: (online) => set({ online }),
+  reopenClosedTab: () => {
+    const id = get().closedTabIds[0];
+    if (!id) return;
+    set({ closedTabIds: get().closedTabIds.slice(1) });
+    get().selectItem(id);
+  },
+
   importPortable: (data) => {
     const t = now();
     const workspace = { ...get().workspace, name: data.workspace.name || get().workspace.name, updatedAt: t };
@@ -513,23 +627,27 @@ export const useScratchpad = create<ScratchpadState & Actions>((set, get) => ({
       for (const it of sorted) {
         const parentKey = it.parentPath.join("/");
         const parentId = parentKey ? (pathMap.get(parentKey) ?? null) : null;
-        const id = uid(it.kind === "note" ? "note" : it.kind === "folder" ? "fld" : "req");
+        if (!["folder", "request", "note", "investigation"].includes(it.kind)) continue;
+        if (items.length >= 2000) break;
+        const id = uid(it.kind === "note" ? "note" : it.kind === "investigation" ? "inv" : it.kind === "folder" ? "fld" : "req");
         if (it.kind === "folder") pathMap.set([...it.parentPath, it.name].join("/"), id);
         items.push({
           id,
           collectionId: col.id,
           parentId,
           kind: it.kind,
-          name: it.name,
+          name: String(it.name ?? "Untitled").slice(0, 200),
           order: it.order,
-          tags: it.tags ?? [],
+          tags: (it.tags ?? []).slice(0, 24).map((t) => String(t).slice(0, 40)),
           method: it.method,
           url: it.url,
           headers: it.headers?.map((h) => ({ ...h, id: uid("h") })),
           bodyType: it.bodyType,
           body: it.body,
           formFields: it.formFields?.map((f) => ({ ...f, id: uid("f") })),
-          content: it.content,
+          content: typeof it.content === "string" ? it.content.slice(0, 500_000) : undefined,
+          auth: it.auth,
+          variables: it.variables?.map((v) => ({ ...v, id: uid("v") })),
           createdAt: t,
           updatedAt: t,
         });

@@ -2,7 +2,7 @@ import type { Collection, HistoryEntry, Item } from "./types";
 
 export interface SearchHit {
   id: string;
-  kind: "request" | "note" | "folder" | "collection" | "history";
+  kind: "request" | "note" | "folder" | "collection" | "history" | "investigation" | "variable";
   title: string;
   snippet: string;
   itemId?: string;
@@ -55,12 +55,20 @@ export function searchWorkspace(
       item.content,
       item.tags.join(" "),
       ...(item.headers ?? []).map((h) => `${h.key} ${h.value}`),
+      ...(item.variables ?? []).map((v) => v.key),
     ]);
     if (!blob.includes(q)) continue;
     const source = item.content || item.body || item.url || item.kind;
     hits.push({
       id: item.id,
-      kind: item.kind === "note" ? "note" : item.kind === "folder" ? "folder" : "request",
+      kind:
+        item.kind === "note"
+          ? "note"
+          : item.kind === "investigation"
+            ? "investigation"
+            : item.kind === "folder"
+              ? "folder"
+              : "request",
       title: item.kind === "request" ? `${item.method ?? "GET"}  ${item.name}` : item.name,
       snippet: snippetAround(source, q),
       itemId: item.id,

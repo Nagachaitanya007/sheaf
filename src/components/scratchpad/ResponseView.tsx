@@ -3,6 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { contentTypeOf, prettyBody } from "@/lib/scratchpad/http";
+import { jsonPathToString } from "@/lib/scratchpad/jsonpath";
+import { useScratchpad } from "@/lib/scratchpad/store";
 import type { HttpResponse, ResponseView as ResponseViewTab } from "@/lib/scratchpad/types";
 import { copyText, formatBytes, formatDuration } from "@/lib/utils";
 import { JsonTree } from "./JsonTree";
@@ -16,7 +18,7 @@ function statusTone(status: number) {
   return "muted" as const;
 }
 
-export function ResponseView({ response }: { response: HttpResponse | null }) {
+export function ResponseView({ response, compact = false }: { response: HttpResponse | null; compact?: boolean }) {
   const [tab, setTab] = useState<ResponseViewTab>("pretty");
   const ct = response ? contentTypeOf(response.headers) : "";
   const pretty = useMemo(() => (response ? prettyBody(response.body, ct) : ""), [response, ct]);
@@ -24,6 +26,7 @@ export function ResponseView({ response }: { response: HttpResponse | null }) {
   const isJson = ct.includes("json") || (response ? prettyBodyLooksJson(response.body) : false);
 
   if (!response) {
+    if (compact) return null;
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
         <p className="text-sm font-medium text-foreground">No response yet</p>
@@ -43,8 +46,12 @@ export function ResponseView({ response }: { response: HttpResponse | null }) {
         <span className="text-xs text-muted">{response.statusText}</span>
         <span className="tabular-nums text-xs text-muted">{formatDuration(response.timeMs)}</span>
         <span className="tabular-nums text-xs text-muted">{formatBytes(response.size)}</span>
-        {response.fromProxy ? <Badge tone="muted">proxy</Badge> : null}
-        {response.truncated ? <Badge tone="warn">truncated</Badge> : null}
+        {response.fromProxy || response.transport === "proxy" ? <Badge tone="muted">proxy</Badge> : null}
+        {response.truncated ? (
+          <Badge tone="warn">
+            Showing {formatBytes(response.body.length)} of {formatBytes(response.truncatedOf ?? response.size)}
+          </Badge>
+        ) : null}
         <div className="ml-auto flex gap-1">
           <Button
             size="sm"
@@ -59,7 +66,10 @@ export function ResponseView({ response }: { response: HttpResponse | null }) {
         </div>
       </div>
       {response.error ? (
-        <p className="border-b border-border px-3 py-2 text-xs text-danger">{response.error}</p>
+        <p className="border-b border-border px-3 py-2 text-xs text-danger">
+          {response.errorKind ? `${labelKind(response.errorKind)} · ` : ""}
+          {response.error}
+        </p>
       ) : null}
       <Tabs value={tab} onValueChange={(v) => setTab(v as ResponseViewTab)} className="flex min-h-0 flex-1 flex-col">
         <div className="border-b border-border px-2 py-1">
@@ -75,7 +85,7 @@ export function ResponseView({ response }: { response: HttpResponse | null }) {
         <div className="min-h-0 flex-1 overflow-auto">
           <TabsContent value="pretty" className="h-full">
             <pre className="whitespace-pre-wrap break-all px-3 py-2 font-mono text-xs leading-relaxed text-foreground">
-              {pretty || "Empty body"}
+              {pretty.length > 120_000 ? pretty.slice(0, 120_000) + "\n… truncated for display" : pretty || "Empty body"}
             </pre>
           </TabsContent>
           <TabsContent value="raw">
@@ -84,7 +94,19 @@ export function ResponseView({ response }: { response: HttpResponse | null }) {
             </pre>
           </TabsContent>
           <TabsContent value="tree">
-            <JsonTree raw={response.body} />
+            <JsonTree
+              raw={response.body}
+              onExtract={(path, value) => {
+                const itemId = useScratchpad.getState().activeItemId;
+                if (!itemId) {
+                  toast.error("Open an investigation or request first");
+                  return;
+                }
+                const name = path.split(".").pop()?.replace(/[^\w]/g, "") || "value";
+                useScratchpad.getState().setExtractedVar(itemId, name, jsonPathToString(value), "investigation");
+                toast.success(`{{${name}}} extracted`);
+              }}
+            />
           </TabsContent>
           <TabsContent value="html">
             <iframe
@@ -129,4 +151,25 @@ export function ResponseView({ response }: { response: HttpResponse | null }) {
 function prettyBodyLooksJson(body: string) {
   const t = body.trim();
   return (t.startsWith("{") && t.endsWith("}")) || (t.startsWith("[") && t.endsWith("]"));
+}
+
+function labelKind(kind: string): string {
+  switch (kind) {
+    case "timeout":
+      return "Timeout";
+    case "aborted":
+      return "Cancelled";
+    case "cors":
+      return "CORS / network";
+    case "dns":
+      return "DNS";
+    case "offline":
+      return "Offline";
+    case "blocked":
+      return "Blocked host";
+    case "variable":
+      return "Variable";
+    default:
+      return kind;
+  }
 }

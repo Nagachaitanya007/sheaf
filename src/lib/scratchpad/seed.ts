@@ -94,6 +94,13 @@ export function createSeed(): PersistSnapshot {
     name: "Notes",
     order: 3,
   });
+  const investigationsFolder = folder({
+    id: uid("fld"),
+    collectionId: collection.id,
+    parentId: null,
+    name: "Investigations",
+    order: 4,
+  });
 
   const login = request({
     id: uid("req"),
@@ -347,6 +354,80 @@ Accept: application/json
 `,
   });
 
+  const authInvestigation: Item = {
+    id: uid("inv"),
+    collectionId: collection.id,
+    parentId: investigationsFolder.id,
+    kind: "investigation",
+    name: "Authentication investigation",
+    order: 0,
+    tags: ["auth", "investigation"],
+    createdAt: t,
+    updatedAt: t,
+    variables: [],
+    content: `# Authentication investigation
+
+We suspect the authentication failure is caused by token expiry — or a missing role on the issued JWT.
+
+Write the investigation here. Run the sequence with **Run sequence** (or Ctrl/⌘ Shift Enter). Extracted values stay on this document as \`{{token}}\` and \`{{userId}}\`.
+
+## Hypothesis
+
+Login succeeds and issues a JWT. A later call to the current-user endpoint may fail authorization even when the token is structurally valid. See [[Login]] if you want the standalone request.
+
+## Login
+
+\`\`\`http
+### Login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+Accept: application/json
+# @extract token=$.accessToken
+# @extract userId=$.id
+
+{
+  "username": "{{email}}",
+  "password": "{{password}}"
+}
+\`\`\`
+
+After a 200, \`accessToken\` is stored as \`{{token}}\`. Open **Utilities → JWT inspector** and paste the token. Check \`exp\`.
+
+## Current user
+
+Uses the extracted token. You can also write \`{{Login.accessToken}}\` to read the last Login JSON directly.
+
+\`\`\`http
+### Current user
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{token}}
+Accept: application/json
+\`\`\`
+
+- **200** — authentication and authorization both work.
+- **401 / 403** — the token is missing, expired, or not accepted for this resource.
+
+## Same user by id
+
+\`\`\`http
+### Get user
+GET {{baseUrl}}/users/{{userId}}
+Accept: application/json
+\`\`\`
+
+Compare this payload with **Current user** (Inspector → Meta → Compare, or the Vars / JSON tree extract actions).
+
+## Conclusion
+
+Write what you observed after running the sequence.
+
+- [ ] Login returns a token
+- [ ] JWT \`exp\` is in the future
+- [ ] \`GET /auth/me\` status: _
+- [ ] User id matches
+`,
+  };
+
   const environments: Environment[] = [
     {
       id: uid("env"),
@@ -413,6 +494,7 @@ Accept: application/json
     users,
     posts,
     notesFolder,
+    investigationsFolder,
     login,
     me,
     refresh,
@@ -425,6 +507,7 @@ Accept: application/json
     gettingStarted,
     authNote,
     jsonNote,
+    authInvestigation,
   ];
 
   return {
@@ -436,8 +519,8 @@ Accept: application/json
     history: [],
     activeWorkspaceId: workspace.id,
     activeEnvironmentId: environments[0]!.id,
-    activeItemId: gettingStarted.id,
-    openTabIds: [gettingStarted.id, login.id, getUsers.id],
+    activeItemId: authInvestigation.id,
+    openTabIds: [authInvestigation.id, gettingStarted.id, login.id],
     collapsedIds: [],
     activeUtility: null,
   };
@@ -445,28 +528,61 @@ Accept: application/json
 
 /** Rewrite leftover sample copy after the product rename. Leaves user notes alone unless they still carry the old sample heading. */
 export function rebrandSnapshot(snap: PersistSnapshot): PersistSnapshot {
+  const items = snap.items.map((item) => {
+    if (item.kind === "note" && item.content?.includes("Developer Scratchpad")) {
+      return {
+        ...item,
+        content: item.content
+          .replaceAll("# Developer Scratchpad", "# Sheaf")
+          .replaceAll("Scratchpad retries", "Sheaf retries"),
+      };
+    }
+    if (item.kind === "request" && item.body?.includes('"lastName": "Scratchpad"')) {
+      return { ...item, body: item.body.replaceAll('"lastName": "Scratchpad"', '"lastName": "Sheaf"') };
+    }
+    if (item.kind === "request" && item.url?.includes("from=scratchpad")) {
+      return {
+        ...item,
+        url: item.url.replaceAll("from=scratchpad", "from=sheaf"),
+        headers: item.headers?.map((h) => (h.key === "X-Scratchpad" ? { ...h, key: "X-Sheaf" } : h)),
+      };
+    }
+    return item;
+  });
+  if (items.some((i) => i.kind === "investigation")) {
+    return { ...snap, items };
+  }
+  const colId = snap.collections[0]?.id;
+  if (!colId) return { ...snap, items };
+  const t = now();
+  const folderId = uid("fld");
+  const invId = uid("inv");
+  const demo = createSeed();
+  const source = demo.items.find((i) => i.kind === "investigation");
+  if (!source) return { ...snap, items };
+  const folder: Item = {
+    id: folderId,
+    collectionId: colId,
+    parentId: null,
+    kind: "folder",
+    name: "Investigations",
+    order: items.filter((i) => !i.parentId && i.collectionId === colId).length,
+    tags: [],
+    createdAt: t,
+    updatedAt: t,
+  };
+  const investigation: Item = {
+    ...source,
+    id: invId,
+    collectionId: colId,
+    parentId: folderId,
+    createdAt: t,
+    updatedAt: t,
+  };
   return {
     ...snap,
-    items: snap.items.map((item) => {
-      if (item.kind === "note" && item.content?.includes("Developer Scratchpad")) {
-        return {
-          ...item,
-          content: item.content
-            .replaceAll("# Developer Scratchpad", "# Sheaf")
-            .replaceAll("Scratchpad retries", "Sheaf retries"),
-        };
-      }
-      if (item.kind === "request" && item.body?.includes('"lastName": "Scratchpad"')) {
-        return { ...item, body: item.body.replaceAll('"lastName": "Scratchpad"', '"lastName": "Sheaf"') };
-      }
-      if (item.kind === "request" && item.url?.includes("from=scratchpad")) {
-        return {
-          ...item,
-          url: item.url.replaceAll("from=scratchpad", "from=sheaf"),
-          headers: item.headers?.map((h) => (h.key === "X-Scratchpad" ? { ...h, key: "X-Sheaf" } : h)),
-        };
-      }
-      return item;
-    }),
+    items: [...items, folder, investigation],
+    activeItemId: invId,
+    openTabIds: [invId, ...snap.openTabIds].slice(0, 8),
   };
 }

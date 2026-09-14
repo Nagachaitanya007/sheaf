@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import {
   ChevronRight,
+  FileSearch,
   FileText,
   Folder,
   FolderOpen,
@@ -86,6 +87,7 @@ function WorkspaceTree() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={() => addItem("investigation", null)}>New investigation</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => addItem("request", null)}>New request</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => addItem("note", null)}>New note</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => addItem("folder", null)}>New folder</DropdownMenuItem>
@@ -126,9 +128,9 @@ function CollectionNode({ id, name, items }: { id: string; name: string; items: 
           }}
           onDelete={() => deleteCollection(id)}
           extras={[
+            { label: "New investigation", run: () => addItem("investigation", null, id) },
             { label: "New request", run: () => addItem("request", null, id) },
             { label: "New note", run: () => addItem("note", null, id) },
-            { label: "New folder", run: () => addItem("folder", null, id) },
           ]}
         />
       </div>
@@ -171,6 +173,7 @@ function ItemNode({ item, items, depth }: { item: Item; items: Item[]; depth: nu
             }}
             onDelete={() => deleteItem(item.id)}
             extras={[
+              { label: "New investigation", run: () => addItem("investigation", item.id, item.collectionId) },
               { label: "New request", run: () => addItem("request", item.id, item.collectionId) },
               { label: "New note", run: () => addItem("note", item.id, item.collectionId) },
             ]}
@@ -195,6 +198,8 @@ function ItemNode({ item, items, depth }: { item: Item; items: Item[]; depth: nu
           <Badge tone={methodTone(item.method ?? "GET")} className="min-w-11 justify-center px-1">
             {item.method ?? "GET"}
           </Badge>
+        ) : item.kind === "investigation" ? (
+          <FileSearch className="size-3.5 text-accent" />
         ) : (
           <FileText className="size-3.5 text-muted" />
         )}
@@ -328,7 +333,7 @@ function SearchList() {
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search notes, requests, responses"
+          placeholder="Search investigations, notes, requests"
           autoFocus
         />
       </div>
@@ -350,7 +355,13 @@ function SearchList() {
             }}
           >
             <span className="flex items-center gap-1.5 text-sm">
-              {hit.kind === "request" ? <Globe className="size-3 text-muted" /> : <FileText className="size-3 text-muted" />}
+              {hit.kind === "request" ? (
+                <Globe className="size-3 text-muted" />
+              ) : hit.kind === "investigation" ? (
+                <FileSearch className="size-3 text-accent" />
+              ) : (
+                <FileText className="size-3 text-muted" />
+              )}
               {hit.title}
             </span>
             <span className="line-clamp-2 font-mono text-2xs text-subtle">{hit.snippet}</span>

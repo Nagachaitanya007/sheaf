@@ -1,5 +1,5 @@
-import { serializeHttp } from "./http";
-import type { Collection, Environment, Item, PersistSnapshot, Workspace } from "./types";
+import { serializeHttp } from "./http.ts";
+import type { Collection, Environment, Item, PersistSnapshot, Workspace } from "./types.ts";
 
 export interface PortableWorkspace {
   format: "sheaf/v1" | "developer-scratchpad/v1";
@@ -26,6 +26,8 @@ interface PortableItem {
   body?: string;
   formFields?: { key: string; value: string; enabled: boolean }[];
   content?: string;
+  auth?: Item["auth"];
+  variables?: { key: string; value: string; secret?: boolean }[];
 }
 
 function parentPath(item: Item, items: Item[]): string[] {
@@ -72,6 +74,8 @@ export function toPortable(snapshot: PersistSnapshot): PortableWorkspace {
             body: i.body,
             formFields: i.formFields?.map(({ key, value, enabled }) => ({ key, value, enabled })),
             content: i.content,
+            auth: i.auth,
+            variables: i.variables?.map(({ key, value, secret }) => ({ key, value, secret })),
           })),
       })),
     environments: snapshot.environments.map((e) => ({
@@ -100,6 +104,10 @@ export function exportHttpBundle(snapshot: PersistSnapshot): string {
 
 export function isPortable(value: unknown): value is PortableWorkspace {
   if (!value || typeof value !== "object") return false;
-  const v = value as { format?: unknown };
-  return v.format === "sheaf/v1" || v.format === "developer-scratchpad/v1";
+  const v = value as { format?: unknown; collections?: unknown };
+  if (v.format !== "sheaf/v1" && v.format !== "developer-scratchpad/v1") return false;
+  if (!Array.isArray(v.collections)) return false;
+  const json = JSON.stringify(value);
+  if (json.length > 2_000_000) return false;
+  return true;
 }

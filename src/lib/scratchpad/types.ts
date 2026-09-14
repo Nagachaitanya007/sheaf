@@ -13,18 +13,22 @@ export type HttpMethod = (typeof HTTP_METHODS)[number];
 export const BODY_TYPES = ["none", "json", "form-data", "urlencoded", "raw"] as const;
 export type BodyType = (typeof BODY_TYPES)[number];
 
-export type ItemKind = "folder" | "request" | "note";
+export type ItemKind = "folder" | "request" | "note" | "investigation";
 
 export type SidebarView = "workspace" | "history" | "search";
 export type MobilePane = "explorer" | "editor" | "inspect";
-export type RightTab = "response" | "utility" | "meta";
-export type ResponseView = "pretty" | "raw" | "headers" | "cookies" | "tree" | "html";
+export type RightTab = "response" | "utility" | "meta" | "vars";
+export type ResponseView = "pretty" | "raw" | "headers" | "cookies" | "tree" | "html" | "diff";
+
+export type AuthType = "none" | "bearer" | "basic" | "apikey";
+export type ExtractionScope = "investigation" | "environment" | "request";
 
 export interface HeaderRow {
   id: string;
   key: string;
   value: string;
   enabled: boolean;
+  generated?: boolean;
 }
 
 export interface FormField {
@@ -32,6 +36,7 @@ export interface FormField {
   key: string;
   value: string;
   enabled: boolean;
+  fileName?: string;
 }
 
 export interface Variable {
@@ -46,6 +51,7 @@ export interface Workspace {
   name: string;
   createdAt: number;
   updatedAt: number;
+  variables?: Variable[];
 }
 
 export interface Collection {
@@ -56,6 +62,30 @@ export interface Collection {
   order: number;
   createdAt: number;
   updatedAt: number;
+}
+
+export interface RequestAuth {
+  type: AuthType;
+  token?: string;
+  username?: string;
+  password?: string;
+  key?: string;
+  value?: string;
+  in?: "header" | "query";
+}
+
+export interface Extraction {
+  as: string;
+  path: string;
+  scope: ExtractionScope;
+  blockKey: string;
+}
+
+export interface BlockResult {
+  blockKey: string;
+  response: HttpResponse;
+  extracted?: Record<string, string>;
+  ranAt: number;
 }
 
 export interface Item {
@@ -73,6 +103,10 @@ export interface Item {
   body?: string;
   formFields?: FormField[];
   content?: string;
+  auth?: RequestAuth;
+  timeoutMs?: number;
+  variables?: Variable[];
+  blockResults?: BlockResult[];
   createdAt: number;
   updatedAt: number;
 }
@@ -92,6 +126,8 @@ export interface CookieInfo {
   raw: string;
 }
 
+export type Transport = "direct" | "proxy";
+
 export interface HttpResponse {
   status: number;
   statusText: string;
@@ -99,15 +135,33 @@ export interface HttpResponse {
   cookies: CookieInfo[];
   body: string;
   truncated: boolean;
+  truncatedOf?: number;
   timeMs: number;
   size: number;
   error?: string;
+  errorKind?: ErrorKind;
   fromProxy?: boolean;
+  transport?: Transport;
+  aborted?: boolean;
 }
+
+export type ErrorKind =
+  | "timeout"
+  | "aborted"
+  | "cors"
+  | "dns"
+  | "offline"
+  | "blocked"
+  | "http"
+  | "parse"
+  | "variable"
+  | "network"
+  | "unknown";
 
 export interface HistoryEntry {
   id: string;
   requestId?: string;
+  blockKey?: string;
   name: string;
   method: HttpMethod;
   url: string;
@@ -115,6 +169,7 @@ export interface HistoryEntry {
   requestBody?: string;
   response: HttpResponse;
   createdAt: number;
+  environmentId?: string;
 }
 
 export interface ParsedRequest {
@@ -124,6 +179,7 @@ export interface ParsedRequest {
   headers: HeaderRow[];
   body: string;
   bodyType: BodyType;
+  extracts?: Extraction[];
 }
 
 export const UTILITY_IDS = [
@@ -151,6 +207,14 @@ export const UTILITY_IDS = [
 
 export type UtilityId = (typeof UTILITY_IDS)[number];
 
+export interface UiPrefs {
+  focusMode?: boolean;
+  sidebarHidden?: boolean;
+  inspectorHidden?: boolean;
+  sidebarSize?: number;
+  inspectorSize?: number;
+}
+
 export interface PersistSnapshot {
   version: 1;
   workspace: Workspace;
@@ -164,10 +228,13 @@ export interface PersistSnapshot {
   openTabIds: string[];
   collapsedIds: string[];
   activeUtility: UtilityId | null;
+  ui?: UiPrefs;
 }
 
 export const STORAGE_KEY = "sheaf/v1";
 export const LEGACY_STORAGE_KEY = "developer-scratchpad/v1";
+export const PREFS_KEY = "sheaf/prefs/v1";
 export const MAX_HISTORY = 80;
 export const MAX_RESPONSE_CHARS = 400_000;
 export const MAX_DISPLAY_CHARS = 120_000;
+export const DEFAULT_TIMEOUT_MS = 30_000;

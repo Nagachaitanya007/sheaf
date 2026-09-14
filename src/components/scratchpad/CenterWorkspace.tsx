@@ -1,4 +1,4 @@
-import { FileText, X } from "lucide-react";
+import { FileSearch, FileText, X } from "lucide-react";
 import { Badge, methodTone } from "@/components/ui/badge";
 import { useScratchpad } from "@/lib/scratchpad/store";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,7 @@ export function CenterWorkspace() {
   const selectItem = useScratchpad((s) => s.selectItem);
   const closeTab = useScratchpad((s) => s.closeTab);
   const addItem = useScratchpad((s) => s.addItem);
+  const dirty = useScratchpad((s) => s.dirty);
   const tabs = openTabIds.map((id) => items.find((i) => i.id === id)).filter(Boolean);
   const active = items.find((i) => i.id === activeItemId);
 
@@ -36,10 +37,13 @@ export function CenterWorkspace() {
                   <Badge tone={methodTone(tab.method ?? "GET")} className="min-w-9 justify-center px-1 text-2xs">
                     {tab.method ?? "GET"}
                   </Badge>
+                ) : tab.kind === "investigation" ? (
+                  <FileSearch className="size-3 text-accent" />
                 ) : (
                   <FileText className="size-3" />
                 )}
                 <span className="max-w-36 truncate">{tab.name}</span>
+                {dirty && tab.id === activeItemId ? <span className="size-1.5 rounded-full bg-accent" /> : null}
                 <span
                   role="button"
                   tabIndex={0}
@@ -58,7 +62,11 @@ export function CenterWorkspace() {
       </div>
       <div className="min-h-0 flex-1">
         {!active || active.kind === "folder" ? (
-          <EmptyEditor onNewRequest={() => addItem("request", null)} onNewNote={() => addItem("note", null)} />
+          <EmptyEditor
+            onNewInvestigation={() => addItem("investigation", null)}
+            onNewRequest={() => addItem("request", null)}
+            onNewNote={() => addItem("note", null)}
+          />
         ) : active.kind === "request" ? (
           <RequestPane item={active} />
         ) : (
@@ -69,18 +77,33 @@ export function CenterWorkspace() {
   );
 }
 
-function EmptyEditor({ onNewRequest, onNewNote }: { onNewRequest: () => void; onNewNote: () => void }) {
+function EmptyEditor({
+  onNewInvestigation,
+  onNewRequest,
+  onNewNote,
+}: {
+  onNewInvestigation: () => void;
+  onNewRequest: () => void;
+  onNewNote: () => void;
+}) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
-      <p className="text-lg font-semibold tracking-tight">Scratch something</p>
+      <p className="text-lg font-semibold tracking-tight">Create your first investigation</p>
       <p className="max-w-sm text-sm text-muted">
-        Open a request from the tree, or start a note with executable HTTP blocks. Everything stays on this device.
+        Write what you're trying to understand. Run HTTP in the same document. Extract values. Come back tomorrow and continue.
       </p>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap justify-center gap-2">
+        <button
+          type="button"
+          onClick={onNewInvestigation}
+          className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
+        >
+          New investigation
+        </button>
         <button
           type="button"
           onClick={onNewRequest}
-          className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
+          className="rounded-md bg-elevated px-3 py-2 text-sm font-medium text-foreground shadow-[var(--shadow-border)]"
         >
           New request
         </button>
