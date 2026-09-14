@@ -132,7 +132,23 @@ function WorkspaceTree() {
         initial={rename?.name ?? ""}
         submitLabel="Rename"
         existing={
-          rename?.type === "collection" ? collections.filter((c) => c.id !== rename.id).map((c) => c.name) : []
+          rename?.type === "collection"
+            ? collections.filter((c) => c.id !== rename.id).map((c) => c.name)
+            : rename
+              ? (() => {
+                  const target = items.find((i) => i.id === rename.id);
+                  return target
+                    ? items
+                        .filter(
+                          (i) =>
+                            i.id !== target.id &&
+                            i.collectionId === target.collectionId &&
+                            i.parentId === target.parentId,
+                        )
+                        .map((i) => i.name)
+                    : [];
+                })()
+              : []
         }
         onOpenChange={(next) => {
           if (!next) setRename(null);
