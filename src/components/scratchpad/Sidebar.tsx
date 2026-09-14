@@ -44,6 +44,7 @@ export function Sidebar() {
       {view === "workspace" ? <WorkspaceTree /> : null}
       {view === "history" ? <HistoryList /> : null}
       {view === "search" ? <SearchList /> : null}
+      </div>
     </div>
   );
 }
