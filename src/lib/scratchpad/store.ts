@@ -113,6 +113,7 @@ interface Actions {
   removeEnvVar: (envId: string, varId: string) => void;
   addEnvironment: (name: string) => void;
   renameEnvironment: (id: string, name: string) => void;
+  deleteEnvironment: (id: string) => void;
   recordHistory: (entry: HistoryEntry) => void;
   deleteHistory: (id: string) => void;
   clearHistory: () => void;
@@ -572,6 +573,15 @@ export const useScratchpad = create<ScratchpadState & Actions>((set, get) => ({
     set({
       environments: get().environments.map((e) => (e.id === id ? { ...e, name: trimmed, updatedAt: now() } : e)),
     });
+    get().persistSoon();
+  },
+
+  deleteEnvironment: (id) => {
+    const { environments, activeEnvironmentId } = get();
+    if (environments.length <= 1) return;
+    const next = environments.filter((e) => e.id !== id);
+    const nextActive = activeEnvironmentId === id ? (next[0]?.id ?? null) : activeEnvironmentId;
+    set({ environments: next, activeEnvironmentId: nextActive });
     get().persistSoon();
   },
 
