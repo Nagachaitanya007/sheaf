@@ -26,14 +26,14 @@ export function DialogContent({ className, children, ...props }: ComponentProps<
       <DialogOverlay />
       <DialogPrimitive.Content
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border border-border bg-surface p-4 shadow-[var(--shadow-pop)]",
+          "fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-md border border-border bg-surface p-4 shadow-[var(--shadow-pop)]",
           "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
           className,
         )}
         {...props}
       >
         {children}
-        <DialogPrimitive.Close className="absolute right-3 top-3 rounded-md p-1 text-muted hover:bg-elevated hover:text-foreground">
+        <DialogPrimitive.Close className="absolute right-3 top-3 rounded-sm p-1 text-muted hover:bg-elevated hover:text-foreground">
           <X className="size-4" />
           <span className="sr-only">Close</span>
         </DialogPrimitive.Close>

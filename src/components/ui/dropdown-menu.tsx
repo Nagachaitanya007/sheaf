@@ -17,7 +17,7 @@ export function DropdownMenuContent({
       <DropdownMenuPrimitive.Content
         sideOffset={sideOffset}
         className={cn(
-          "z-50 min-w-40 overflow-hidden rounded-lg border border-border bg-surface p-1 shadow-[var(--shadow-pop)]",
+          "z-50 min-w-40 overflow-hidden rounded-md border border-border bg-surface p-1 shadow-[var(--shadow-pop)]",
           className,
         )}
         {...props}
@@ -30,7 +30,7 @@ export function DropdownMenuItem({ className, ...props }: ComponentProps<typeof 
   return (
     <DropdownMenuPrimitive.Item
       className={cn(
-        "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm text-foreground outline-none data-[highlighted]:bg-elevated",
+        "flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-foreground outline-none data-[highlighted]:bg-elevated",
         className,
       )}
       {...props}

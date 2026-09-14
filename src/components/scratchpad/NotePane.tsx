@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { Item } from "@/lib/scratchpad/types";
 import { useScratchpad } from "@/lib/scratchpad/store";
@@ -11,13 +10,13 @@ export function NotePane({ item }: { item: Item }) {
   const investigation = item.kind === "investigation";
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-1 border-b border-border px-3 py-1.5">
-        <Button size="sm" variant={mode === "preview" ? "secondary" : "ghost"} onClick={() => setMode("preview")}>
+      <div className="flex items-center gap-0 border-b border-border px-2">
+        <button type="button" data-active={mode === "preview"} className="rail-tab" onClick={() => setMode("preview")}>
           Preview
-        </Button>
-        <Button size="sm" variant={mode === "edit" ? "secondary" : "ghost"} onClick={() => setMode("edit")}>
+        </button>
+        <button type="button" data-active={mode === "edit"} className="rail-tab" onClick={() => setMode("edit")}>
           Edit
-        </Button>
+        </button>
         {investigation ? (
           <div className="ml-2">
             <InvestigationToolbar item={item} />

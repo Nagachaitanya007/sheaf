@@ -33,7 +33,7 @@ export function Sidebar() {
   const setView = useScratchpad((s) => s.setSidebarView);
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface">
-      <div className="flex items-center gap-1 border-b border-border p-2">
+      <div className="flex items-center border-b border-border px-1">
         <SideTab active={view === "workspace"} onClick={() => setView("workspace")} icon={<Folder className="size-3.5" />} label="Workspace" />
         <SideTab active={view === "history"} onClick={() => setView("history")} icon={<History className="size-3.5" />} label="History" />
         <SideTab active={view === "search"} onClick={() => setView("search")} icon={<Search className="size-3.5" />} label="Search" />
@@ -57,14 +57,7 @@ function SideTab({
   label: string;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex h-8 flex-1 items-center justify-center gap-1 rounded-md text-xs font-medium",
-        active ? "bg-elevated text-foreground" : "text-muted hover:text-foreground",
-      )}
-    >
+    <button type="button" onClick={onClick} data-active={active} className="rail-tab flex-1">
       {icon}
       <span className="hidden sm:inline">{label}</span>
     </button>
@@ -79,7 +72,7 @@ function WorkspaceTree() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center justify-between px-3 py-2">
-        <p className="text-2xs font-medium uppercase tracking-wider text-subtle">Collections</p>
+        <p className="text-2xs font-medium uppercase tracking-[0.14em] text-subtle">Index</p>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button size="icon-sm" variant="ghost" aria-label="Add">
@@ -115,10 +108,10 @@ function CollectionNode({ id, name, items }: { id: string; name: string; items: 
   const roots = items.filter((i) => i.collectionId === id && !i.parentId).sort((a, b) => a.order - b.order);
   return (
     <div className="mb-1">
-      <div className="group flex items-center gap-0.5 rounded-md px-1 hover:bg-elevated">
+      <div className="group flex items-center gap-0.5 px-1 hover:bg-elevated">
         <button type="button" className="flex min-w-0 flex-1 items-center gap-1 py-1.5 text-left" onClick={() => toggle(id)}>
           <ChevronRight className={cn("size-3.5 text-subtle transition-transform", open && "rotate-90")} />
-          {open ? <FolderOpen className="size-3.5 text-accent" /> : <Folder className="size-3.5 text-accent" />}
+          {open ? <FolderOpen className="size-3.5 text-muted" /> : <Folder className="size-3.5 text-muted" />}
           <span className="truncate text-sm font-medium">{name}</span>
         </button>
         <RowMenu
@@ -158,7 +151,7 @@ function ItemNode({ item, items, depth }: { item: Item; items: Item[]; depth: nu
     return (
       <div>
         <div
-          className="group flex items-center rounded-md hover:bg-elevated"
+          className="group flex items-center hover:bg-elevated"
           style={{ paddingLeft: 8 + depth * 12 }}
         >
           <button type="button" className="flex min-w-0 flex-1 items-center gap-1 py-1 text-left" onClick={() => toggle(item.id)}>
@@ -186,7 +179,8 @@ function ItemNode({ item, items, depth }: { item: Item; items: Item[]; depth: nu
 
   return (
     <div
-      className={cn("group flex items-center rounded-md", active ? "bg-elevated" : "hover:bg-elevated")}
+      className={cn("nav-row group flex items-center", !active && "hover:bg-elevated")}
+      data-active={active}
       style={{ paddingLeft: 8 + depth * 12 }}
     >
       <button
@@ -231,7 +225,7 @@ function RowMenu({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="mr-1 hidden size-7 items-center justify-center rounded-md text-subtle hover:text-foreground group-hover:flex"
+          className="mr-1 hidden size-7 items-center justify-center rounded-sm text-subtle hover:text-foreground group-hover:flex"
           aria-label="Item menu"
         >
           <MoreHorizontal className="size-3.5" />
@@ -264,7 +258,7 @@ function HistoryList() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center justify-between px-3 py-2">
-        <p className="text-2xs font-medium uppercase tracking-wider text-subtle">Request history</p>
+        <p className="text-2xs font-medium uppercase tracking-[0.14em] text-subtle">Request history</p>
         {history.length ? (
           <Button size="sm" variant="ghost" onClick={() => clearHistory()}>
             Clear
@@ -279,7 +273,7 @@ function HistoryList() {
             <button
               key={h.id}
               type="button"
-              className="mb-0.5 flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left hover:bg-elevated"
+              className="mb-0.5 flex w-full items-start gap-2 px-2 py-1.5 text-left hover:bg-elevated"
               onClick={() => {
                 setLastResponse(h.requestId ?? null, h.response);
                 if (h.requestId && items.some((i) => i.id === h.requestId)) selectItem(h.requestId);
@@ -291,14 +285,14 @@ function HistoryList() {
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm">{h.name}</span>
                 <span className="block truncate font-mono text-2xs text-subtle">{h.url}</span>
-                <span className="text-2xs text-muted">
+                <span className="font-mono text-2xs text-muted">
                   {h.response.status || "ERR"} · {formatRelative(h.createdAt)}
                 </span>
               </span>
               <span
                 role="button"
                 tabIndex={0}
-                className="rounded-md p-1 text-subtle hover:text-danger"
+                className="rounded-sm p-1 text-subtle hover:text-danger"
                 onClick={(e) => {
                   e.stopPropagation();
                   deleteHistory(h.id);
@@ -345,7 +339,7 @@ function SearchList() {
           <button
             key={hit.id}
             type="button"
-            className="mb-0.5 flex w-full flex-col items-start rounded-md px-2 py-1.5 text-left hover:bg-elevated"
+            className="mb-0.5 flex w-full flex-col items-start px-2 py-1.5 text-left hover:bg-elevated"
             onClick={() => {
               if (hit.kind === "history") {
                 const h = history.find((x) => x.id === hit.historyId);

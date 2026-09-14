@@ -6,16 +6,16 @@ import { contentTypeOf, prettyBody } from "@/lib/scratchpad/http";
 import { jsonPathToString } from "@/lib/scratchpad/jsonpath";
 import { useScratchpad } from "@/lib/scratchpad/store";
 import type { HttpResponse, ResponseView as ResponseViewTab } from "@/lib/scratchpad/types";
-import { copyText, formatBytes, formatDuration } from "@/lib/utils";
+import { cn, copyText, formatBytes, formatDuration } from "@/lib/utils";
 import { JsonTree } from "./JsonTree";
 import { toast } from "sonner";
 
-function statusTone(status: number) {
-  if (status >= 200 && status < 300) return "success" as const;
-  if (status >= 300 && status < 400) return "info" as const;
-  if (status >= 400 && status < 500) return "warn" as const;
-  if (status >= 500) return "danger" as const;
-  return "muted" as const;
+function statusClass(status: number, error?: string) {
+  if (error) return "text-danger";
+  if (status >= 200 && status < 300) return "text-success";
+  if (status >= 400 && status < 500) return "text-warn";
+  if (status >= 500) return "text-danger";
+  return "text-foreground";
 }
 
 export function ResponseView({ response, compact = false }: { response: HttpResponse | null; compact?: boolean }) {
@@ -28,9 +28,9 @@ export function ResponseView({ response, compact = false }: { response: HttpResp
   if (!response) {
     if (compact) return null;
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-        <p className="text-sm font-medium text-foreground">No response yet</p>
-        <p className="max-w-xs text-xs text-muted">
+      <div className="flex h-full flex-col items-start justify-center gap-2 px-6">
+        <p className="font-serif text-lg font-semibold tracking-tight">No response yet</p>
+        <p className="max-w-xs text-sm leading-relaxed text-muted">
           Send a request with Ctrl/⌘ Enter. Status, headers, cookies, and JSON land here.
         </p>
       </div>
@@ -39,13 +39,13 @@ export function ResponseView({ response, compact = false }: { response: HttpResp
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
-        <Badge tone={response.error ? "danger" : statusTone(response.status)}>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-3 py-2">
+        <span className={cn("font-mono text-sm tabular-nums", statusClass(response.status, response.error))}>
           {response.error ? "ERR" : response.status || "—"}
-        </Badge>
-        <span className="text-xs text-muted">{response.statusText}</span>
-        <span className="tabular-nums text-xs text-muted">{formatDuration(response.timeMs)}</span>
-        <span className="tabular-nums text-xs text-muted">{formatBytes(response.size)}</span>
+        </span>
+        <span className="font-mono text-xs tabular-nums text-muted">{formatDuration(response.timeMs)}</span>
+        <span className="font-mono text-xs tabular-nums text-muted">{formatBytes(response.size)}</span>
+        <span className="text-xs text-subtle">{response.statusText}</span>
         {response.fromProxy || response.transport === "proxy" ? <Badge tone="muted">proxy</Badge> : null}
         {response.truncated ? (
           <Badge tone="warn">
@@ -112,7 +112,7 @@ export function ResponseView({ response, compact = false }: { response: HttpResp
             <iframe
               title="HTML response"
               sandbox=""
-              className="h-[480px] w-full bg-primary"
+              className="h-[480px] w-full bg-background"
               srcDoc={response.body}
             />
           </TabsContent>

@@ -7,7 +7,7 @@ import { UTILITIES } from "@/lib/scratchpad/utilities";
 import { cancelSend, runDocument, sendItem } from "@/lib/scratchpad/send";
 import { downloadText } from "@/lib/utils";
 
-export function CommandPalette() {
+export function CommandPalette({ onToggleAppearance }: { onToggleAppearance?: () => void }) {
   const open = useScratchpad((s) => s.commandOpen);
   const setOpen = useScratchpad((s) => s.setCommandOpen);
   const items = useScratchpad((s) => s.items);
@@ -47,7 +47,7 @@ export function CommandPalette() {
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-overlay px-3 pt-[12vh]" onClick={() => setOpen(false)}>
       <Command
         label="Command palette"
-        className="w-full max-w-xl overflow-hidden rounded-xl border border-border bg-surface shadow-[var(--shadow-pop)]"
+        className="w-full max-w-xl overflow-hidden rounded-md border border-border-strong bg-elevated shadow-[var(--shadow-pop)]"
         onClick={(e) => e.stopPropagation()}
       >
         <Command.Input
@@ -66,9 +66,11 @@ export function CommandPalette() {
                   selectItem(f.id);
                   setOpen(false);
                 }}
-                className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm data-[selected=true]:bg-elevated"
+                className="cmdk-item flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm"
               >
-                <span className="text-muted">{f.kind === "request" ? f.method : f.kind === "investigation" ? "INV" : "MD"}</span>
+                <span className="font-mono text-2xs uppercase text-muted">
+                  {f.kind === "request" ? f.method : f.kind === "investigation" ? "INV" : "MD"}
+                </span>
                 {f.name}
               </Command.Item>
             ))}
@@ -115,6 +117,14 @@ export function CommandPalette() {
             </Item>
             <Item onSelect={() => { useScratchpad.getState().setInspectorHidden(!useScratchpad.getState().inspectorHidden); setOpen(false); }}>
               Toggle inspector
+            </Item>
+            <Item
+              onSelect={() => {
+                onToggleAppearance?.();
+                setOpen(false);
+              }}
+            >
+              Toggle light / dark
             </Item>
             <Item onSelect={() => { setSidebarView("history"); setOpen(false); }}>Open history</Item>
             <Item onSelect={() => { setSidebarView("search"); setOpen(false); }}>Search workspace</Item>
@@ -225,7 +235,7 @@ function Item({ children, onSelect }: { children: ReactNode; onSelect: () => voi
   return (
     <Command.Item
       onSelect={onSelect}
-      className="flex cursor-pointer items-center rounded-md px-2 py-1.5 text-sm data-[selected=true]:bg-elevated"
+      className="cmdk-item flex cursor-pointer items-center rounded-sm px-2 py-1.5 text-sm"
     >
       {children}
     </Command.Item>

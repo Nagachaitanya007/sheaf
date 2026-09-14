@@ -26,15 +26,14 @@ export function RightDrawer() {
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface">
-      <div className="flex gap-1 border-b border-border p-2">
+      <div className="flex border-b border-border px-1">
         {(["response", "utility", "vars", "meta"] as const).map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => setTab(t)}
-            className={`h-8 flex-1 rounded-md text-xs font-medium capitalize ${
-              tab === t ? "bg-elevated text-foreground" : "text-muted hover:text-foreground"
-            }`}
+            data-active={tab === t}
+            className="rail-tab flex-1 capitalize"
           >
             {t === "response" ? "Inspector" : t === "utility" ? "Utilities" : t === "vars" ? "Vars" : "Meta"}
           </button>

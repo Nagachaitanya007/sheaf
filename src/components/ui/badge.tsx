@@ -3,20 +3,20 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-sm px-1.5 py-0.5 text-2xs font-semibold uppercase tracking-wide tabular-nums",
+  "inline-flex items-center rounded-sm px-1.5 py-0.5 font-mono text-2xs font-semibold uppercase tracking-wide tabular-nums",
   {
     variants: {
       tone: {
-        get: "bg-method-get/15 text-method-get",
-        post: "bg-method-post/15 text-method-post",
-        put: "bg-method-put/15 text-method-put",
-        patch: "bg-method-patch/15 text-method-patch",
-        delete: "bg-method-delete/15 text-method-delete",
+        get: "bg-method-get/12 text-method-get",
+        post: "bg-method-post/12 text-method-post",
+        put: "bg-method-put/12 text-method-put",
+        patch: "bg-method-patch/12 text-method-patch",
+        delete: "bg-method-delete/12 text-method-delete",
         muted: "bg-elevated text-muted",
-        success: "bg-success/15 text-success",
-        warn: "bg-warn/15 text-warn",
-        danger: "bg-danger/15 text-danger",
-        info: "bg-info/15 text-info",
+        success: "bg-success/12 text-success",
+        warn: "bg-warn/12 text-warn",
+        danger: "bg-danger/12 text-danger",
+        info: "bg-info/12 text-info",
       },
     },
     defaultVariants: { tone: "muted" },

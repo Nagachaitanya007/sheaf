@@ -1,9 +1,10 @@
-import { FileCode2, FolderTree, Maximize2, PanelLeft, PanelRight, Send, Square } from "lucide-react";
-import { useEffect } from "react";
+import { FileCode2, FolderTree, Maximize2, Moon, PanelLeft, PanelRight, Send, Square, Sun } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Group, Panel, Separator as ResizeHandle } from "react-resizable-panels";
 import { Toaster } from "sonner";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { applyAppearance, readAppearance, toggleAppearance, type Appearance } from "@/lib/scratchpad/appearance";
 import { cancelSend, runDocument, sendItem } from "@/lib/scratchpad/send";
 import { useScratchpad } from "@/lib/scratchpad/store";
 import { isMac } from "@/lib/utils";
@@ -18,6 +19,14 @@ import { Sidebar } from "./Sidebar";
 export function AppShell() {
   const hydrated = useScratchpad((s) => s.hydrated);
   const hydrate = useScratchpad((s) => s.hydrate);
+  const [appearance, setAppearance] = useState<Appearance>("light");
+
+  useEffect(() => {
+    const next = readAppearance();
+    setAppearance(next);
+    applyAppearance(next);
+  }, []);
+
   useEffect(() => {
     void hydrate();
     const failsafe = window.setTimeout(() => {
@@ -36,20 +45,22 @@ export function AppShell() {
     };
   }, [hydrate]);
 
+  const cycleAppearance = () => setAppearance((current) => toggleAppearance(current));
+
   if (!hydrated) return <ShellFrame />;
   return (
     <TooltipProvider delayDuration={250}>
       <div className="flex h-dvh flex-col bg-background text-foreground">
-        <TitleBar />
+        <TitleBar appearance={appearance} onToggleAppearance={cycleAppearance} />
         <div className="min-h-0 flex-1">
           <DesktopPanes />
         </div>
         <MobileDock />
         <StatusBar />
-        <CommandPalette />
+        <CommandPalette onToggleAppearance={cycleAppearance} />
         <EnvEditor />
         <ShortcutsDialog />
-        <Toaster theme="dark" position="bottom-right" richColors={false} />
+        <Toaster theme={appearance} position="bottom-right" richColors={false} />
         <Keybindings />
       </div>
     </TooltipProvider>
@@ -60,7 +71,7 @@ function ShellFrame() {
   return (
     <div className="flex h-dvh flex-col bg-background text-foreground">
       <header className="flex h-11 items-center gap-3 border-b border-border px-3">
-        <span className="flex size-6 items-center justify-center rounded-md border border-border text-accent">
+        <span className="flex size-6 items-center justify-center text-accent">
           <BrandMark className="size-3.5" />
         </span>
         <span className="text-sm font-semibold tracking-tight">Sheaf</span>
@@ -74,7 +85,13 @@ function ShellFrame() {
   );
 }
 
-function TitleBar() {
+function TitleBar({
+  appearance,
+  onToggleAppearance,
+}: {
+  appearance: Appearance;
+  onToggleAppearance: () => void;
+}) {
   const workspace = useScratchpad((s) => s.workspace);
   const environments = useScratchpad((s) => s.environments);
   const activeEnvironmentId = useScratchpad((s) => s.activeEnvironmentId);
@@ -89,7 +106,7 @@ function TitleBar() {
 
   return (
     <header className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-2 sm:px-3">
-      <span className="flex size-6 items-center justify-center rounded-md border border-border text-accent">
+      <span className="flex size-6 items-center justify-center text-accent">
         <BrandMark className="size-3.5" />
       </span>
       <div className="min-w-0">
@@ -100,7 +117,7 @@ function TitleBar() {
         <select
           value={activeEnvironmentId ?? ""}
           onChange={(e) => setEnvironment(e.target.value)}
-          className="h-8 max-w-[140px] rounded-md border border-border bg-elevated px-2 text-xs"
+          className="h-8 max-w-[140px] rounded-sm border border-border bg-elevated px-2 text-xs"
           aria-label="Environment"
         >
           {environments.map((e) => (
@@ -138,6 +155,14 @@ function TitleBar() {
           onClick={() => useScratchpad.getState().setFocusMode(!useScratchpad.getState().focusMode)}
         >
           <Maximize2 className="size-3.5" />
+        </Button>
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          aria-label={appearance === "dark" ? "Switch to light" : "Switch to dark"}
+          onClick={onToggleAppearance}
+        >
+          {appearance === "dark" ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}
         </Button>
         <Button
           size="sm"
@@ -207,7 +232,7 @@ function DesktopPanes() {
               <Panel id="sidebar" minSize="14%" className="min-w-0">
                 <Sidebar />
               </Panel>
-              <ResizeHandle className="w-1 bg-border hover:bg-accent/40 data-active:bg-accent/60" />
+              <ResizeHandle className="pane-split" />
             </>
           ) : null}
           <Panel id="center" minSize="30%" className="min-w-0">
@@ -215,7 +240,7 @@ function DesktopPanes() {
           </Panel>
           {!hideRight ? (
             <>
-              <ResizeHandle className="w-1 bg-border hover:bg-accent/40 data-active:bg-accent/60" />
+              <ResizeHandle className="pane-split" />
               <Panel id="right" minSize="20%" className="min-w-0">
                 <RightDrawer />
               </Panel>
@@ -246,10 +271,11 @@ function MobileDock() {
           key={t.id}
           type="button"
           onClick={() => setPane(t.id)}
-          className={`flex flex-1 flex-col items-center justify-center gap-0.5 text-2xs ${
+          className={`relative flex flex-1 flex-col items-center justify-center gap-0.5 text-2xs ${
             pane === t.id ? "text-foreground" : "text-muted"
           }`}
         >
+          {pane === t.id ? <span className="absolute inset-x-6 top-0 h-0.5 bg-accent" /> : null}
           <t.icon className="size-4" />
           {t.label}
         </button>
@@ -266,7 +292,7 @@ function StatusBar() {
   const sendState = useScratchpad((s) => s.sendState);
   const online = useScratchpad((s) => s.online);
   return (
-    <footer className="hidden h-7 shrink-0 items-center gap-3 border-t border-border bg-surface px-3 text-2xs text-muted md:flex">
+    <footer className="hidden h-7 shrink-0 items-center gap-3 border-t border-border bg-surface px-3 font-mono text-2xs text-muted md:flex">
       <span>{dirty ? "Saving…" : "Saved locally"}</span>
       <span className="text-border-strong">·</span>
       <span className={online ? "" : "text-warn"}>App {online ? "online" : "offline"}</span>

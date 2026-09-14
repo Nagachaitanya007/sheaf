@@ -12,7 +12,7 @@ export function ScrollArea({ className, children, ...props }: ComponentProps<typ
         orientation="vertical"
         className="flex w-2.5 touch-none select-none border-l border-l-transparent p-px"
       >
-        <ScrollAreaPrimitive.Thumb className="relative flex-1 rounded-full bg-border-strong" />
+        <ScrollAreaPrimitive.Thumb className="relative flex-1 rounded-sm bg-border-strong" />
       </ScrollAreaPrimitive.Scrollbar>
     </ScrollAreaPrimitive.Root>
   );

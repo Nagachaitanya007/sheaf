@@ -37,7 +37,7 @@ export function UtilityPanel() {
         <select
           value={active}
           onChange={(e) => setUtility(e.target.value as UtilityId)}
-          className="h-8 w-full rounded-md border border-border bg-inset px-2 text-sm text-foreground"
+          className="h-8 w-full rounded-sm border border-border bg-inset px-2 text-sm text-foreground"
         >
           {UTILITIES.map((u) => (
             <option key={u.id} value={u.id}>
@@ -410,7 +410,7 @@ function UtilityBody({ id }: { id: UtilityId }) {
           <select
             value={hashAlgo}
             onChange={(e) => setHashAlgo(e.target.value as typeof hashAlgo)}
-            className="h-8 rounded-md border border-border bg-inset px-2 text-xs"
+            className="h-8 rounded-sm border border-border bg-inset px-2 text-xs"
           >
             <option>SHA-1</option>
             <option>SHA-256</option>

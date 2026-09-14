@@ -1,5 +1,6 @@
 import { FileSearch, FileText, X } from "lucide-react";
 import { Badge, methodTone } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useScratchpad } from "@/lib/scratchpad/store";
 import { cn } from "@/lib/utils";
 import { NotePane } from "./NotePane";
@@ -29,8 +30,8 @@ export function CenterWorkspace() {
                 type="button"
                 onClick={() => selectItem(tab.id)}
                 className={cn(
-                  "group flex h-full items-center gap-1.5 border-r border-border px-2.5 text-xs",
-                  tab.id === activeItemId ? "bg-elevated text-foreground" : "text-muted hover:text-foreground",
+                  "group relative flex h-full items-center gap-1.5 border-r border-border px-2.5 text-xs",
+                  tab.id === activeItemId ? "bg-background text-foreground" : "text-muted hover:text-foreground",
                 )}
               >
                 {tab.kind === "request" ? (
@@ -55,6 +56,7 @@ export function CenterWorkspace() {
                 >
                   <X className="size-3" />
                 </span>
+                {tab.id === activeItemId ? <span className="absolute inset-x-2 bottom-0 h-0.5 bg-accent" /> : null}
               </button>
             ) : null,
           )
@@ -87,33 +89,23 @@ function EmptyEditor({
   onNewNote: () => void;
 }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-3 px-8 text-center">
-      <p className="text-lg font-semibold tracking-tight">Create your first investigation</p>
-      <p className="max-w-sm text-sm text-muted">
-        Write what you're trying to understand. Run HTTP in the same document. Extract values. Come back tomorrow and continue.
-      </p>
-      <div className="flex flex-wrap justify-center gap-2">
-        <button
-          type="button"
-          onClick={onNewInvestigation}
-          className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
-        >
+    <div className="flex h-full flex-col items-start justify-center gap-4 px-10">
+      <div className="max-w-md">
+        <p className="font-serif text-2xl font-semibold tracking-tight">Start an investigation</p>
+        <p className="mt-2 text-sm leading-relaxed text-muted">
+          Write what you're trying to understand, then add an HTTP request. Notes, responses, and extractions stay in the same document.
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="send" onClick={onNewInvestigation}>
           New investigation
-        </button>
-        <button
-          type="button"
-          onClick={onNewRequest}
-          className="rounded-md bg-elevated px-3 py-2 text-sm font-medium text-foreground shadow-[var(--shadow-border)]"
-        >
-          New request
-        </button>
-        <button
-          type="button"
-          onClick={onNewNote}
-          className="rounded-md bg-elevated px-3 py-2 text-sm font-medium text-foreground shadow-[var(--shadow-border)]"
-        >
-          New note
-        </button>
+        </Button>
+        <Button variant="secondary" onClick={onNewRequest}>
+          + HTTP Request
+        </Button>
+        <Button variant="ghost" onClick={onNewNote}>
+          + Markdown
+        </Button>
       </div>
     </div>
   );

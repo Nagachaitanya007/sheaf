@@ -26,7 +26,7 @@ export function RequestPane({ item }: { item: Item }) {
           <select
             value={item.method ?? "GET"}
             onChange={(e) => updateRequest(item.id, { method: e.target.value as HttpMethod })}
-            className="h-9 w-[108px] rounded-md border border-border bg-elevated px-2 font-mono text-xs font-semibold"
+            className="h-9 w-[108px] rounded-sm border border-border bg-elevated px-2 font-mono text-xs font-semibold"
           >
             {HTTP_METHODS.map((m) => (
               <option key={m}>{m}</option>

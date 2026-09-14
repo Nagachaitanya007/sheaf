@@ -1,6 +1,7 @@
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
+import { APPEARANCE_BOOT } from "@/lib/scratchpad/appearance";
 import appCss from "../styles.css?url";
 
 const APP_NAME = "Sheaf";
@@ -11,7 +12,7 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: APP_NAME },
-      { name: "theme-color", content: "#0c0d10" },
+      { name: "theme-color", content: "#f3eee4" },
       {
         name: "description",
         content: "Local-first workbench for notes, HTTP, and data. Write it. Run it. Keep it.",
@@ -25,8 +26,9 @@ export const Route = createRootRoute({
     ],
   }),
   component: () => (
-    <html lang="en" className="dark antialiased" suppressHydrationWarning>
+    <html lang="en" className="antialiased" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: APPEARANCE_BOOT }} />
         <HeadContent />
       </head>
       <body className="bg-background text-foreground">

@@ -34,9 +34,9 @@ export function MarkdownDoc({
 
   if (!blocks.length) {
     return (
-      <div className="px-6 py-10">
-        <p className="text-sm font-medium text-foreground">Write what you're trying to understand.</p>
-        <p className="mt-1 max-w-md text-sm text-muted">
+      <div className="px-8 py-12">
+        <p className="font-serif text-xl font-semibold tracking-tight">Write what you're trying to understand.</p>
+        <p className="mt-2 max-w-md text-sm leading-relaxed text-muted">
           Markdown, executable HTTP, and observations live in the same document. Add a fenced <code className="md-code">http</code> block
           and press Run.
         </p>
@@ -47,7 +47,7 @@ export function MarkdownDoc({
   let httpIndex = 0;
   return (
     <article
-      className={cn("px-4 py-4 text-sm leading-relaxed text-foreground sm:px-6 sm:py-5", className)}
+      className={cn("md-doc px-4 py-5 text-foreground sm:px-8 sm:py-6", className)}
       onClick={(e) => {
         const target = (e.target as HTMLElement).closest("[data-wiki]") as HTMLElement | null;
         if (!target) return;
@@ -79,7 +79,7 @@ export function MarkdownDoc({
           return (
             <p
               key={i}
-              className="mb-3 text-pretty text-muted"
+              className="mb-3 text-pretty"
               dangerouslySetInnerHTML={{ __html: inlineToHtml(block.text) }}
             />
           );
@@ -97,7 +97,7 @@ export function MarkdownDoc({
         if (block.type === "list") {
           const List = block.ordered ? "ol" : "ul";
           return (
-            <List key={i} className={cn("mb-3 space-y-1 pl-5 text-muted", block.ordered ? "list-decimal" : "list-disc")}>
+            <List key={i} className={cn("mb-3 space-y-1 pl-5", block.ordered ? "list-decimal" : "list-disc")}>
               {block.items.map((it, j) => (
                 <li key={j} className="text-pretty">
                   {it.checked != null ? (
@@ -113,7 +113,7 @@ export function MarkdownDoc({
         }
         if (block.type === "table") {
           return (
-            <div key={i} className="mb-4 overflow-auto rounded-md border border-border">
+            <div key={i} className="mb-4 overflow-auto border border-border">
               <table className="w-full text-left text-xs">
                 <thead className="bg-elevated text-foreground">
                   <tr>
@@ -139,7 +139,7 @@ export function MarkdownDoc({
         }
         if (block.type === "code") {
           return (
-            <pre key={i} className="mb-4 overflow-auto rounded-md border border-border bg-inset px-3 py-2 font-mono text-xs leading-relaxed text-foreground">
+            <pre key={i} className="mb-4 overflow-auto border border-border bg-inset px-3 py-2 font-mono text-xs leading-relaxed text-foreground">
               {block.code}
             </pre>
           );
@@ -193,7 +193,7 @@ function HttpCard({
   const parsedRequest = { ...request, extracts, name: request.name ?? key };
 
   return (
-    <div className="my-4 overflow-hidden rounded-lg border border-border bg-inset">
+    <div className="http-block">
       <div className="flex items-center gap-2 px-3 py-2">
         <Badge tone={methodTone(request.method)}>{request.method}</Badge>
         <code className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">{request.name ? `${request.name} · ${request.url}` : request.url}</code>
