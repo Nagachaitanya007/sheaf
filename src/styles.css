@@ -392,3 +392,100 @@ code {
   line-height: 1.55;
   white-space: pre;
 }
+/* Experimental sidebar density system.
+   The rail itself never resizes: only its visual surface peeks over the next pane. */
+.sidebar-rail {
+  container-type: inline-size;
+  width: 100%;
+  min-width: 0;
+}
+.sidebar-surface {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  z-index: 3;
+  transition: width 180ms var(--ease-out), box-shadow 180ms var(--ease-out);
+}
+.sidebar-tabs {
+  min-width: 0;
+  flex: 0 0 auto;
+}
+.sidebar-tabs .rail-tab {
+  min-width: 0;
+  flex: 1 1 0;
+}
+.sidebar-tabs .rail-tab-label {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.sidebar-name-text {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.method-compact { display: none; }
+
+@container (max-width: 219px) {
+  .sidebar-tabs .rail-tab {
+    flex: 0 1 34px;
+    width: 34px;
+    padding-inline: 0;
+  }
+  .sidebar-tabs .rail-tab-label { display: none; }
+
+  .method-badge {
+    min-width: 30px !important;
+    width: 30px;
+    padding-inline: 0 !important;
+  }
+  .method-full { display: none; }
+  .method-compact { display: inline; }
+
+  .nav-row > button {
+    gap: 0.4rem;
+  }
+  .sidebar-name-text {
+    text-overflow: clip;
+    mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 14px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 14px), transparent 100%);
+  }
+}
+
+@container (max-width: 159px) {
+  .sidebar-tabs .rail-tab {
+    flex-basis: 32px;
+    width: 32px;
+  }
+
+  .sidebar-surface {
+    width: 100%;
+  }
+
+  .sidebar-surface:hover,
+  .sidebar-surface:focus-within {
+    width: min(240px, calc(100% + 70px));
+    box-shadow: 10px 0 30px rgb(43 37 28 / 0.12);
+  }
+
+  .sidebar-surface:hover .sidebar-name-text,
+  .sidebar-surface:focus-within .sidebar-name-text {
+    mask-image: none;
+    -webkit-mask-image: none;
+    text-overflow: ellipsis;
+  }
+
+  .sidebar-surface:hover .method-full,
+  .sidebar-surface:focus-within .method-full {
+    display: inline;
+  }
+  .sidebar-surface:hover .method-compact,
+  .sidebar-surface:focus-within .method-compact {
+    display: none;
+  }
+}
