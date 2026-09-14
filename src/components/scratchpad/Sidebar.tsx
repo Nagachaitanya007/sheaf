@@ -34,11 +34,11 @@ export function Sidebar() {
   const view = useScratchpad((s) => s.sidebarView);
   const setView = useScratchpad((s) => s.setSidebarView);
   return (
-    <div className="flex h-full min-h-0 flex-col bg-surface">
-      <div className="flex items-center border-b border-border px-1">
-        <SideTab active={view === "workspace"} onClick={() => setView("workspace")} icon={<Folder className="size-3.5" />} label="Workspace" />
-        <SideTab active={view === "history"} onClick={() => setView("history")} icon={<History className="size-3.5" />} label="History" />
-        <SideTab active={view === "search"} onClick={() => setView("search")} icon={<Search className="size-3.5" />} label="Search" />
+    <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-surface">
+      <div className="flex h-10 shrink-0 items-center gap-1 border-b border-border px-1.5">
+        <SideTab active={view === "workspace"} onClick={() => setView("workspace")} icon={<Folder className="size-3.5 shrink-0" />} label="Workspace" />
+        <SideTab active={view === "history"} onClick={() => setView("history")} icon={<History className="size-3.5 shrink-0" />} label="History" />
+        <SideTab active={view === "search"} onClick={() => setView("search")} icon={<Search className="size-3.5 shrink-0" />} label="Search" />
       </div>
       {view === "workspace" ? <WorkspaceTree /> : null}
       {view === "history" ? <HistoryList /> : null}
@@ -59,10 +59,19 @@ function SideTab({
   label: string;
 }) {
   return (
-    <button type="button" onClick={onClick} data-active={active} className="rail-tab min-w-0 flex-1 overflow-hidden">
-      {icon}
-      <span className="hidden min-w-0 truncate sm:inline">{label}</span>
-    </button>
+    <IconTip label={label}>
+      <button
+        type="button"
+        onClick={onClick}
+        data-active={active}
+        aria-label={label}
+        title={label}
+        className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-md px-1.5 py-1.5 text-xs text-muted transition-colors hover:bg-elevated hover:text-foreground data-[active=true]:bg-inset data-[active=true]:text-foreground"
+      >
+        {icon}
+        <span className="min-w-0 truncate">{label}</span>
+      </button>
+    </IconTip>
   );
 }
 
