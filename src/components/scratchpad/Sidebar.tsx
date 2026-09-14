@@ -12,7 +12,7 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Badge, methodTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,33 +33,10 @@ import { NameDialog } from "./NameDialog";
 export function Sidebar() {
   const view = useScratchpad((s) => s.sidebarView);
   const setView = useScratchpad((s) => s.setSidebarView);
-  const [density, setDensity] = useState<"wide" | "medium" | "narrow" | "compact">("wide");
-  const [hoverExpand, setHoverExpand] = useState(false);
-  const sidebarRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const el = sidebarRef.current;
-    if (!el) return;
-    const update = () => {
-      const width = el.getBoundingClientRect().width;
-      setDensity(width >= 220 ? "wide" : width >= 170 ? "medium" : width >= 125 ? "narrow" : "compact");
-    };
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
   return (
-    <div
-      ref={sidebarRef}
-      data-density={density}
-      className="relative flex h-full min-h-0 flex-col bg-surface transition-[width] duration-200 ease-out"
-      style={{ width: hoverExpand && density !== "wide" ? 240 : undefined }}
-      onMouseEnter={() => density !== "wide" && setHoverExpand(true)}
-      onMouseLeave={() => setHoverExpand(false)}
-    >
-      <div className="flex items-center border-b border-border px-1">
+    <div className="sidebar-rail relative flex h-full min-h-0 flex-col overflow-visible bg-surface">
+      <div className="sidebar-surface flex h-full min-h-0 min-w-0 flex-col border-r border-border bg-surface">
+      <div className="sidebar-tabs flex items-center border-b border-border px-1">
         <SideTab active={view === "workspace"} onClick={() => setView("workspace")} icon={<Folder className="size-3.5" />} label="Workspace" />
         <SideTab active={view === "history"} onClick={() => setView("history")} icon={<History className="size-3.5" />} label="History" />
         <SideTab active={view === "search"} onClick={() => setView("search")} icon={<Search className="size-3.5" />} label="Search" />
@@ -84,9 +61,16 @@ function SideTab({
   label: string;
 }) {
   return (
-    <button type="button" onClick={onClick} data-active={active} className="rail-tab flex-1">
+    <button
+      type="button"
+      onClick={onClick}
+      data-active={active}
+      className="rail-tab flex-1"
+      aria-label={label}
+      title={label}
+    >
       {icon}
-      <span className="hidden sm:inline">{label}</span>
+      <span className="rail-tab-label">{label}</span>
     </button>
   );
 }
@@ -316,50 +300,122 @@ function AdaptiveName({ name, className }: { name: string; className?: string })
 function SidebarAdaptiveStyles() {
   return (
     <style>{`
+      .sidebar-rail {
+        container-type: inline-size;
+        width: 100%;
+      }
+      .sidebar-surface {
+        position: relative;
+        width: 100%;
+        overflow: hidden;
+        transition: width 180ms ease, box-shadow 180ms ease;
+        z-index: 2;
+      }
+      /* Expand only the inner surface. The resizable panel never changes width,
+         so there is no mouseenter/ResizeObserver feedback loop and no flicker. */
+      @media (hover: hover) {
+        .sidebar-surface:hover {
+          width: min(240px, 82vw);
+          overflow: hidden;
+          box-shadow: 10px 0 28px rgb(0 0 0 / 0.10);
+        }
+      }
+
+      .sidebar-name {
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
+      }
+      .sidebar-name-text {
+        display: block;
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
       .method-badge {
         min-width: 44px;
-        padding: 0 5px;
+        width: 44px;
         height: 20px;
+        padding: 0 5px;
         display: inline-flex;
+        flex: 0 0 auto;
         align-items: center;
         justify-content: center;
         border-radius: 6px;
         font-size: 10px;
-        font-weight: 600;
+        font-weight: 650;
+        line-height: 1;
         background: var(--surface-elevated);
         border: 1px solid var(--border);
       }
       .method-compact { display: none; }
-      [data-density="narrow"] .method-full,
-      [data-density="compact"] .method-full { display: none; }
-      [data-density="narrow"] .method-compact,
-      [data-density="compact"] .method-compact { display: inline; }
-      [data-density="narrow"] .method-badge,
-      [data-density="compact"] .method-badge { min-width: 24px; width: 24px; padding: 0; }
-      [data-density="compact"] .sidebar-name-text {
-        opacity: 0;
-        width: 0;
-        overflow: hidden;
+
+      .sidebar-tabs {
+        flex: 0 0 auto;
+        min-width: 0;
       }
-      [data-density="narrow"] .sidebar-name-text {
-        display: block;
+      .sidebar-tabs .rail-tab {
+        min-width: 0;
+        flex: 1 1 0%;
+      }
+      .sidebar-tabs .rail-tab-label {
+        min-width: 0;
         overflow: hidden;
         white-space: nowrap;
-        mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 20px), transparent 100%);
-        -webkit-mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 20px), transparent 100%);
+        text-overflow: ellipsis;
       }
-      [data-density="narrow"] .nav-row,
-      [data-density="compact"] .nav-row { padding-top: 3px; padding-bottom: 3px; }
-      [data-density="narrow"] .nav-row > button,
-      [data-density="compact"] .nav-row > button { gap: 5px; }
-      [data-density="medium"] .sidebar-row-action,
-      [data-density="narrow"] .sidebar-row-action,
-      [data-density="compact"] .sidebar-row-action { opacity: 0; }
-      [data-density="compact"] .nav-row > button { padding-left: 4px; padding-right: 4px; }
+
+      @container (max-width: 219px) {
+        .sidebar-tabs .rail-tab {
+          width: 34px;
+          flex: 0 1 34px;
+          padding-inline: 0;
+        }
+        .sidebar-tabs .rail-tab-label {
+          display: none;
+        }
+        .method-badge {
+          min-width: 32px;
+          width: 32px;
+          padding: 0;
+        }
+        .method-full { display: none; }
+        .method-compact { display: inline; }
+        .nav-row > button {
+          gap: 5px;
+        }
+      }
+
+      @container (max-width: 154px) {
+        .sidebar-tabs {
+          justify-content: space-evenly;
+        }
+        .sidebar-tabs .rail-tab {
+          width: 32px;
+          flex: 0 0 32px;
+        }
+        .sidebar-name-text {
+          mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 18px), transparent 100%);
+          -webkit-mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 18px), transparent 100%);
+          text-overflow: clip;
+        }
+        .nav-row {
+          min-height: 28px;
+        }
+      }
+
+      .sidebar-row-action {
+        flex: 0 0 auto;
+      }
+      .sidebar-surface:hover .sidebar-row-action {
+        opacity: 1;
+      }
     `}</style>
   );
 }
-
 function RowMenu({
   onRename,
   onDelete,
