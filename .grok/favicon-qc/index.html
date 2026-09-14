@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html,body { margin:0; padding:0; background:#111; }
+  .row { display:flex; gap:16px; align-items:flex-end; padding:16px; }
+  .cell { display:flex; flex-direction:column; align-items:center; gap:6px; color:#aaa; font: 12px sans-serif; }
+  img { display:block; image-rendering: auto; }
+  .px16 { width:16px; height:16px; }
+  .px32 { width:32px; height:32px; }
+  .px64 { width:64px; height:64px; }
+  .px180 { width:180px; height:180px; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <div class="cell"><img class="px16" src="favicon.svg"><span>16</span></div>
+    <div class="cell"><img class="px32" src="favicon.svg"><span>32</span></div>
+    <div class="cell"><img class="px64" src="favicon.svg"><span>64</span></div>
+    <div class="cell"><img class="px180" src="favicon.svg"><span>180</span></div>
+  </div>
+</body>
+</html>
