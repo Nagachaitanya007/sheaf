@@ -50,24 +50,24 @@ export function EnvEditor() {
   return (
     <>
       <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-h-[80vh] overflow-auto">
+      <DialogContent className="max-h-[82vh] max-w-2xl overflow-auto p-4 sm:p-5">
         <DialogTitle>Environments</DialogTitle>
         <DialogDescription>
           Variables such as {"{{baseUrl}}"} and {"{{token}}"} resolve from the active environment. Secret values stay in this browser.
         </DialogDescription>
-        <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
+        <div className="mt-3 flex items-center gap-1.5 overflow-x-auto rounded-lg border border-border bg-inset p-1">
           {environments.map((environment) => (
             <div
               key={environment.id}
               className={cn(
-                "group flex min-w-0 items-center gap-1 rounded-lg border px-1.5 py-1",
-                environment.id === env?.id ? "border-accent/40 bg-inset" : "border-transparent hover:bg-elevated",
+                "group flex min-w-0 shrink-0 items-center rounded-md border",
+                environment.id === env?.id ? "border-accent/40 bg-background" : "border-transparent",
               )}
             >
               <Button
                 size="sm"
                 variant="ghost"
-                className="min-w-0 flex-1 justify-start truncate"
+                className="max-w-40 justify-start px-2.5"
                 onClick={() => setEnvironment(environment.id)}
               >
                 <span className="truncate" title={environment.name}>{environment.name}</span>
@@ -78,7 +78,7 @@ export function EnvEditor() {
                     type="button"
                     size="icon-sm"
                     variant="ghost"
-                    className="shrink-0 text-subtle hover:text-danger"
+                    className="mr-0.5 shrink-0 text-subtle hover:text-danger"
                     aria-label={"Delete " + environment.name}
                     onClick={() => setDeleteTarget(environment)}
                   >
@@ -88,8 +88,8 @@ export function EnvEditor() {
               ) : null}
             </div>
           ))}
-          <Button size="sm" variant="ghost" className="justify-start" onClick={() => setCreating(true)}>
-            Add environment
+          <Button size="sm" variant="ghost" className="shrink-0 px-2.5" onClick={() => setCreating(true)}>
+            + Add
           </Button>
         </div>
         {env ? (
