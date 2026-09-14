@@ -178,6 +178,28 @@ export function toCurl(req: {
   return parts.join(" \\\n  ");
 }
 
+export function rewriteHttpRaw(
+  raw: string,
+  patch: Partial<{ method: HttpMethod; url: string; headers: HeaderRow[]; body: string }>,
+): string {
+  const parsed = parseSingleRequest(raw);
+  const extracts = [...raw.matchAll(/^#\s*@extract.*$/gim)].map((m) => m[0]);
+  const next = serializeHttp({
+    name: parsed?.name,
+    method: patch.method ?? parsed?.method ?? "GET",
+    url: patch.url ?? parsed?.url ?? "",
+    headers: patch.headers ?? parsed?.headers,
+    body: patch.body !== undefined ? patch.body : parsed?.body,
+  });
+  if (!extracts.length) return next;
+  const parts = next.replace(/\n+$/, "").split("\n");
+  const methodIdx = parts.findIndex((line) => /^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s/i.test(line));
+  let insertAt = methodIdx >= 0 ? methodIdx + 1 : parts.length;
+  while (insertAt < parts.length && parts[insertAt] !== "") insertAt += 1;
+  parts.splice(insertAt, 0, ...extracts);
+  return parts.join("\n") + "\n";
+}
+
 export function headersToRecord(headers: HeaderRow[], vars: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {};
   for (const h of headers) {

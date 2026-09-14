@@ -213,10 +213,17 @@ function looksJson(text: string): boolean {
 }
 
 function highlightUrl(out: HighlightToken[], url: string) {
-  highlightPlainWithVarsInto(out, url);
-  const last = out[out.length - 1];
-  if (last && last.kind === "plain") last.kind = "url";
+  const re = /(\{\{[^}]+\}\})/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(url))) {
+    if (m.index > last) out.push({ kind: "url", text: url.slice(last, m.index) });
+    out.push({ kind: "variable", text: m[0] ?? "" });
+    last = m.index + (m[0]?.length ?? 0);
+  }
+  if (last < url.length) out.push({ kind: "url", text: url.slice(last) });
 }
+
 
 function highlightPlainWithVarsInto(out: HighlightToken[], text: string) {
   for (const t of highlightPlainWithVars(text)) push(out, t.kind, t.text);

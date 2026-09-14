@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { Button } from "@/components/ui/button";
 import { SignedIn, SignedOut, UserButton } from "@/lib/auth/gates";
 import { GROK_PROVIDERS, authEnabled, signIn } from "@/lib/auth/client";
-import { useCurrentUser } from "@/lib/auth/use-current-user";
+import { useCurrentUser, useCurrentUserState } from "@/lib/auth/use-current-user";
 import { toPortable } from "@/lib/scratchpad/import-export";
 import { isPortable, useScratchpad } from "@/lib/scratchpad/store";
 import { stripSecrets } from "@/lib/scratchpad/secrets";
@@ -15,6 +15,8 @@ export function SyncDialog() {
   const open = useScratchpad((s) => s.syncOpen);
   const setOpen = useScratchpad((s) => s.setSyncOpen);
   const user = useCurrentUser();
+  const { isPending } = useCurrentUserState();
+  const syncIntent = useScratchpad((s) => s.syncIntent);
   const [prefs, setPrefs] = useState<SyncPrefs>(() => readSyncPrefs());
   const [busy, setBusy] = useState(false);
   const [conflict, setConflict] = useState<{ local: string; cloud: string; cloudRevision: number } | null>(null);
@@ -22,6 +24,15 @@ export function SyncDialog() {
   useEffect(() => {
     if (open) setPrefs(readSyncPrefs());
   }, [open]);
+
+  useEffect(() => {
+    if (!open || !syncIntent || isPending) return;
+    useScratchpad.getState().setSyncIntent(false);
+    if (!user) return;
+    void syncNow("auto");
+    // Intent is a one-shot flag; syncNow reads latest dialog state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, syncIntent, isPending, user]);
 
   function persist(next: SyncPrefs) {
     setPrefs(next);

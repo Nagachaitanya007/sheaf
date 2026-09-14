@@ -135,6 +135,20 @@ export function ImportExportDialog() {
               size="sm"
               variant="ghost"
               disabled={item?.kind !== "request"}
+              onClick={() => {
+                if (!item || item.kind !== "request") return;
+                const snap = useScratchpad.getState().snapshot();
+                const one = exportSubset(snap, [item.id]);
+                downloadText(`${slug(item.name)}.json`, JSON.stringify(one, null, 2), "application/json");
+                toast.success("Request JSON exported");
+              }}
+            >
+              Request JSON
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={item?.kind !== "request"}
               onClick={async () => {
                 if (!item || item.kind !== "request") return;
                 const ok = await copyText(

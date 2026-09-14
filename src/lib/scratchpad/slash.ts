@@ -8,7 +8,8 @@ export interface SlashCommand {
   caretOffset?: number;
 }
 
-export const HTTP_SNIPPET = "```http\nGET https://api.example.com/\n\n```\n";
+export const HTTP_SNIPPET = "```http\nGET https://api.example.com/\nAccept: application/json\n\n```\n";
+export const HTTP_RAW = "GET https://api.example.com/\nAccept: application/json\n";
 
 export const SLASH_COMMANDS: SlashCommand[] = [
   {

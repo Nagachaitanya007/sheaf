@@ -4,9 +4,10 @@ import { readAppearance } from "./appearance.ts";
 import { highlight, highlightHttp, highlightJson } from "./highlight.ts";
 import { exportHttpBundle, isPortable, toPortable } from "./import-export.ts";
 import { detectImport, importAny, importBruno, importPostman } from "./importers.ts";
-import { parseHttpFile, parseSingleRequest, serializeHttp } from "./http.ts";
+import { parseHttpFile, parseSingleRequest, rewriteHttpRaw, serializeHttp } from "./http.ts";
+import { appendHttpFence, parseMarkdown, replaceHttpSpan } from "./markdown.ts";
 import { countSecrets, payloadHasSecretKeys, stripSecrets } from "./secrets.ts";
-import { applySlash, detectSlash, filterSlash, HTTP_SNIPPET } from "./slash.ts";
+import { applySlash, detectSlash, filterSlash, HTTP_SNIPPET, requestCommand } from "./slash.ts";
 import { decideSyncPush, looksOffline } from "./sync-core.ts";
 import { formatSyncTime } from "./sync-prefs.ts";
 import type { PersistSnapshot } from "./types.ts";
@@ -39,6 +40,14 @@ test("slash insert HTTP block replaces the /query token", () => {
   const parsed = parseSingleRequest(HTTP_SNIPPET.replace(/```http\n/, "").replace(/```\n/, ""));
   assert.ok(parsed);
   assert.equal(parsed.method, "GET");
+});
+
+test("saved request slash command inserts executable HTTP", () => {
+  const cmd = requestCommand("abc", "Login", "POST https://x.test/login\n");
+  assert.equal(cmd.kind, "http");
+  assert.match(cmd.insert, /```http\nPOST https:\/\/x.test\/login/);
+  const hits = filterSlash("log", [cmd]);
+  assert.ok(hits.some((h) => h.id === "req:abc"));
 });
 
 test("syntax highlighting distinguishes JSON keys, strings, numbers, booleans, null", () => {
@@ -147,6 +156,7 @@ test("secrets are counted and stripped from export and sync payloads", () => {
   assert.equal(payloadHasSecretKeys(json), false);
   assert.doesNotMatch(json, /sk-live/);
   assert.doesNotMatch(json, /secret-token/);
+  assert.doesNotMatch(json, /hunter2/);
   assert.match(json, /baseUrl/);
   assert.match(json, /\[redacted\]/);
 });
@@ -254,4 +264,49 @@ test("serializeHttp round-trip keeps method and url", () => {
   const parsed = parseSingleRequest(http);
   assert.equal(parsed?.method, "GET");
   assert.equal(parsed?.url, "https://example.com");
+});
+
+test("HTTP URL highlighting marks variables and the rest of the URL", () => {
+  const tokens = highlightHttp("GET https://x.test/{{id}}/items");
+  assert.ok(tokens.some((t) => t.kind === "url" && t.text.includes("https://x.test/")));
+  assert.ok(tokens.some((t) => t.kind === "variable" && t.text.includes("id")));
+});
+
+test("SQL, bash, CSS, HTML, and markdown highlighters mark structure", () => {
+  const sql = highlight("SELECT * FROM users WHERE id = 1", "sql");
+  assert.ok(sql.some((t) => t.kind === "keyword" && t.text.toLowerCase() === "select"));
+  const sh = highlight("if true; then echo hi; fi", "bash");
+  assert.ok(sh.some((t) => t.kind === "keyword" && t.text === "if"));
+  const css = highlight("body { color: red; /* x */ }", "css");
+  assert.ok(css.length > 1);
+  const html = highlight('<div class="x">hi</div>', "html");
+  assert.ok(html.some((t) => t.kind === "keyword"));
+  const md = highlight("# Title\n> quote", "markdown");
+  assert.ok(md.some((t) => t.kind === "keyword"));
+});
+
+test("investigation HTTP block rewrite preserves extract directives", () => {
+  const raw = '### Login\nPOST https://x.test/login\nContent-Type: application/json\n# @extract token=$.accessToken\n\n{"a":1}\n';
+  const next = rewriteHttpRaw(raw, { url: "https://x.test/auth" });
+  assert.match(next, /POST https:\/\/x.test\/auth/);
+  assert.match(next, /@extract token=\$\.accessToken/);
+});
+
+test("replaceHttpSpan updates the nth fenced request and keeps surrounding markdown", () => {
+  const src = "# Auth\n\n```http\nGET https://x.test/a\n```\n\nNotes here.\n";
+  const blocks = parseMarkdown(src);
+  const http = blocks.find((b) => b.type === "http");
+  assert.ok(http && http.type === "http");
+  const next = replaceHttpSpan(src, http.start, http.end, "POST https://x.test/b\n");
+  assert.match(next, /POST https:\/\/x.test\/b/);
+  assert.match(next, /Notes here/);
+  assert.equal(parseMarkdown(next).filter((b) => b.type === "http").length, 1);
+});
+
+test("appendHttpFence keeps HTTP executable after re-import", () => {
+  const next = appendHttpFence("# Probe\n", "GET https://example.com/ping\n");
+  const http = parseMarkdown(next).find((b) => b.type === "http");
+  assert.ok(http && http.type === "http");
+  assert.equal(http.request.method, "GET");
+  assert.equal(http.request.url, "https://example.com/ping");
 });

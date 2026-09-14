@@ -51,6 +51,9 @@ export interface ScratchpadState {
   importExportOpen: boolean;
   syncOpen: boolean;
   syncTick: number;
+  syncIntent: boolean;
+  docMode: "preview" | "edit";
+  focusHttpIndex: number | null;
   searchQuery: string;
   lastResponse: HttpResponse | null;
   lastResponseItemId: string | null;
@@ -78,6 +81,9 @@ interface Actions {
   setImportExportOpen: (open: boolean) => void;
   setSyncOpen: (open: boolean) => void;
   setSyncTick: () => void;
+  setSyncIntent: (on: boolean) => void;
+  setDocMode: (mode: "preview" | "edit") => void;
+  setFocusHttpIndex: (index: number | null) => void;
   setSearchQuery: (q: string) => void;
   setUtility: (id: UtilityId | null) => void;
   selectItem: (id: string | null) => void;
@@ -172,6 +178,9 @@ export const useScratchpad = create<ScratchpadState & Actions>((set, get) => ({
   importExportOpen: false,
   syncOpen: false,
   syncTick: 0,
+  syncIntent: false,
+  docMode: "preview",
+  focusHttpIndex: null,
   searchQuery: "",
   lastResponse: null,
   lastResponseItemId: null,
@@ -242,6 +251,9 @@ export const useScratchpad = create<ScratchpadState & Actions>((set, get) => ({
   setImportExportOpen: (importExportOpen) => set({ importExportOpen }),
   setSyncOpen: (syncOpen) => set({ syncOpen }),
   setSyncTick: () => set({ syncTick: get().syncTick + 1 }),
+  setSyncIntent: (syncIntent) => set({ syncIntent }),
+  setDocMode: (docMode) => set({ docMode }),
+  setFocusHttpIndex: (focusHttpIndex) => set({ focusHttpIndex }),
   setSearchQuery: (searchQuery) => set({ searchQuery, sidebarView: "search" }),
   setUtility: (activeUtility) => set({ activeUtility, rightTab: "utility" }),
 

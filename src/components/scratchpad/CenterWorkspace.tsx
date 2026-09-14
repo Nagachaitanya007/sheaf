@@ -1,5 +1,6 @@
 import { FileSearch, FileText, X } from "lucide-react";
 import { Badge, methodTone } from "@/components/ui/badge";
+import { IconTip } from "@/components/ui/icon-tip";
 import { Button } from "@/components/ui/button";
 import { useScratchpad } from "@/lib/scratchpad/store";
 import { cn } from "@/lib/utils";
@@ -45,19 +46,20 @@ export function CenterWorkspace() {
                 )}
                 <span className="max-w-36 truncate">{tab.name}</span>
                 {dirty && tab.id === activeItemId ? <span className="size-1.5 rounded-full bg-accent" /> : null}
-                <span
-                  role="button"
-                  tabIndex={0}
-                  aria-label="Close"
-                  title="Close"
-                  className="rounded-md p-0.5 text-subtle hover:bg-inset hover:text-foreground"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    closeTab(tab.id);
-                  }}
-                >
-                  <X className="size-3" />
-                </span>
+                <IconTip label="Close">
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Close"
+                    className="rounded-md p-0.5 text-subtle hover:bg-inset hover:text-foreground"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      closeTab(tab.id);
+                    }}
+                  >
+                    <X className="size-3" />
+                  </span>
+                </IconTip>
                 {tab.id === activeItemId ? <span className="absolute inset-x-2 bottom-0 h-0.5 bg-accent" /> : null}
               </button>
             ) : null,

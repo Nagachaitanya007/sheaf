@@ -10,6 +10,7 @@ import { looksLikeEpoch, looksLikeJwt } from "@/lib/scratchpad/utilities";
 import { cn, copyText, formatBytes, formatDuration } from "@/lib/utils";
 import { CodeBlock } from "./CodeBlock";
 import { JsonTree } from "./JsonTree";
+import { IconTip } from "@/components/ui/icon-tip";
 import { toast } from "sonner";
 
 function statusClass(status: number, error?: string) {
@@ -72,28 +73,32 @@ export function ResponseView({ response, compact = false }: { response: HttpResp
               Open in JSON
             </Button>
           ) : null}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              const history = useScratchpad.getState().history;
-              if (history[0]) useScratchpad.getState().setCompare(0, history[0].id);
-              if (history[1]) useScratchpad.getState().setCompare(1, history[1].id);
-              useScratchpad.getState().setRightTab("meta");
-            }}
-          >
-            Compare
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={async () => {
-              const ok = await copyText(isJson ? pretty : response.body);
-              toast[ok ? "success" : "error"](ok ? "Copied response" : "Copy failed");
-            }}
-          >
-            Copy
-          </Button>
+          <IconTip label="Compare responses">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                const history = useScratchpad.getState().history;
+                if (history[0]) useScratchpad.getState().setCompare(0, history[0].id);
+                if (history[1]) useScratchpad.getState().setCompare(1, history[1].id);
+                useScratchpad.getState().setRightTab("meta");
+              }}
+            >
+              Compare
+            </Button>
+          </IconTip>
+          <IconTip label="Copy">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={async () => {
+                const ok = await copyText(isJson ? pretty : response.body);
+                toast[ok ? "success" : "error"](ok ? "Copied response" : "Copy failed");
+              }}
+            >
+              Copy
+            </Button>
+          </IconTip>
         </div>
       </div>
       {response.error ? (

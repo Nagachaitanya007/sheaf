@@ -6,7 +6,7 @@ export type MdBlock =
   | { type: "paragraph"; text: string }
   | { type: "list"; ordered: boolean; items: { text: string; checked?: boolean }[] }
   | { type: "code"; lang: string; code: string }
-  | { type: "http"; request: ParsedRequest; raw: string }
+  | { type: "http"; request: ParsedRequest; raw: string; start: number; end: number }
   | { type: "table"; headers: string[]; rows: string[][] }
   | { type: "quote"; text: string }
   | { type: "hr" };
@@ -14,7 +14,19 @@ export type MdBlock =
 const METHOD_LINE = /^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+\S+/i;
 
 export function parseMarkdown(source: string): MdBlock[] {
-  const lines = source.replace(/\r\n/g, "\n").split("\n");
+  const sourceNorm = source.replace(/\r\n/g, "\n");
+  const lines = sourceNorm.split("\n");
+  const starts: number[] = [];
+  {
+    let p = 0;
+    for (let li = 0; li < lines.length; li += 1) {
+      starts.push(p);
+      p += lines[li]!.length + (li < lines.length - 1 ? 1 : 0);
+    }
+  }
+  const spanEnd = (toLineExclusive: number) =>
+    toLineExclusive < lines.length ? (starts[toLineExclusive] ?? sourceNorm.length) : sourceNorm.length;
+
   const blocks: MdBlock[] = [];
   let i = 0;
 
@@ -35,6 +47,7 @@ export function parseMarkdown(source: string): MdBlock[] {
     }
 
     if (/^```/.test(line)) {
+      const openLine = i;
       const lang = line.replace(/^```/, "").trim().toLowerCase();
       i += 1;
       const buf: string[] = [];
@@ -44,10 +57,12 @@ export function parseMarkdown(source: string): MdBlock[] {
       }
       if (i < lines.length) i += 1;
       const code = buf.join("\n");
+      const start = starts[openLine] ?? 0;
+      const end = spanEnd(i);
       if (lang === "http" || lang === "rest") {
         const request = parseSingleRequest(code);
         if (request) {
-          blocks.push({ type: "http", request, raw: code });
+          blocks.push({ type: "http", request, raw: code, start, end });
           continue;
         }
       }
@@ -56,6 +71,7 @@ export function parseMarkdown(source: string): MdBlock[] {
     }
 
     if (METHOD_LINE.test(line.trim())) {
+      const openLine = i;
       const buf: string[] = [];
       while (i < lines.length) {
         const l = peek();
@@ -63,14 +79,16 @@ export function parseMarkdown(source: string): MdBlock[] {
         if (buf.length > 0 && METHOD_LINE.test(l.trim()) && buf[buf.length - 1]?.trim() === "") break;
         buf.push(l);
         i += 1;
-        if (buf.length > 1 && l.trim() === "" && peek() && !/^[{\["']/.test(peek().trim()) && !HEADERISH(peek()) && !METHOD_LINE.test(peek().trim())) {
+        if (buf.length > 1 && l.trim() === "" && peek() && !/^[{["']/.test(peek().trim()) && !HEADERISH(peek()) && !METHOD_LINE.test(peek().trim())) {
           break;
         }
       }
       const raw = buf.join("\n").trimEnd();
       const request = parseSingleRequest(raw);
+      const start = starts[openLine] ?? 0;
+      const end = spanEnd(i);
       if (request) {
-        blocks.push({ type: "http", request, raw });
+        blocks.push({ type: "http", request, raw, start, end });
         continue;
       }
       blocks.push({ type: "paragraph", text: raw });
@@ -157,12 +175,32 @@ function HEADERISH(line: string): boolean {
   return /^[A-Za-z0-9!#$%&'*+.^_`|~-]+\s*:/.test(line);
 }
 
+export function replaceHttpSpan(source: string, start: number, end: number, nextRaw: string): string {
+  const norm = source.replace(/\r\n/g, "\n");
+  const block = "```http\n" + nextRaw.replace(/^\n+|\n+$/g, "") + "\n```";
+  const before = norm.slice(0, start);
+  const after = norm.slice(end);
+  const left = before.length === 0 || before.endsWith("\n") ? before : `${before}\n`;
+  const right = after.length === 0 || after.startsWith("\n") ? after : `\n${after}`;
+  return left + block + right;
+}
+
+export function appendHttpFence(source: string, raw = "GET https://api.example.com/\nAccept: application/json\n"): string {
+  const fence = "```http\n" + raw.replace(/^\n+|\n+$/g, "") + "\n```\n";
+  if (!source.trim()) return fence;
+  return source.replace(/\s*$/, "") + "\n\n" + fence;
+}
+
+export function countHttpBlocks(source: string): number {
+  return parseMarkdown(source).filter((b) => b.type === "http").length;
+}
+
 export function inlineToHtml(text: string): string {
   const escaped = escapeHtml(text);
   return escaped
     .replace(/`([^`]+)`/g, '<code class="md-code">$1</code>')
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/(^|[^\*])\*([^*\n]+)\*(?!\*)/g, "$1<em>$2</em>")
+    .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, "$1<em>$2</em>")
     .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>')
     .replace(/!\[([^\]]*)\]\((https?:[^)\s]+)\)/g, '<img alt="$1" src="$2" />')
     .replace(

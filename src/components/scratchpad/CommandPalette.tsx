@@ -1,11 +1,11 @@
 import { Command } from "cmdk";
 import { useEffect, useMemo, type ReactNode } from "react";
 import { toast } from "sonner";
-import { HTTP_SNIPPET } from "@/lib/scratchpad/slash";
+import { serializeHttp } from "@/lib/scratchpad/http";
 import { UTILITIES } from "@/lib/scratchpad/utilities";
 import { cancelSend, runDocument, sendItem } from "@/lib/scratchpad/send";
+import { insertHttpInto } from "@/lib/scratchpad/insert-http";
 import { useScratchpad } from "@/lib/scratchpad/store";
-import { insertHttpInto } from "./NotePane";
 
 export function CommandPalette({ onToggleAppearance }: { onToggleAppearance?: () => void }) {
   const open = useScratchpad((s) => s.commandOpen);
@@ -40,8 +40,16 @@ export function CommandPalette({ onToggleAppearance }: { onToggleAppearance?: ()
     () => items.filter((i) => i.kind === "request" || i.kind === "note" || i.kind === "investigation"),
     [items],
   );
+  const requests = useMemo(() => items.filter((i) => i.kind === "request"), [items]);
 
   if (!open) return null;
+
+  function requireDoc(): (typeof items)[number] | null {
+    const item = items.find((i) => i.id === activeItemId);
+    if (item && (item.kind === "investigation" || item.kind === "note")) return item;
+    toast.error("Open an investigation first");
+    return null;
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-overlay px-3 pt-[12vh]" onClick={() => setOpen(false)}>
@@ -76,36 +84,58 @@ export function CommandPalette({ onToggleAppearance }: { onToggleAppearance?: ()
             ))}
           </Command.Group>
           <Command.Group heading="Create" className="px-1 py-1 text-2xs font-medium uppercase tracking-wider text-subtle">
-            <Item onSelect={() => { addItem("investigation", null); setOpen(false); }}>New investigation</Item>
-            <Item onSelect={() => { addItem("request", null); setOpen(false); }}>New request</Item>
-            <Item onSelect={() => { addItem("note", null); setOpen(false); }}>New note</Item>
+            <Item onSelect={() => { addItem("investigation", null); setOpen(false); }}>New Investigation</Item>
+            <Item onSelect={() => { addItem("request", null); setOpen(false); }}>New Request</Item>
+            <Item onSelect={() => { addItem("note", null); setOpen(false); }}>New Note</Item>
             <Item onSelect={() => { addItem("folder", null); setOpen(false); }}>New folder</Item>
             <Item onSelect={() => { addCollection(); setOpen(false); }}>New collection</Item>
             <Item
               onSelect={() => {
-                const item = items.find((i) => i.id === activeItemId);
-                if (item && (item.kind === "investigation" || item.kind === "note")) {
-                  insertHttpInto(item);
-                  toast.success("HTTP block inserted — switch to Edit if you don't see it");
-                } else toast.error("Open an investigation first");
+                const item = requireDoc();
+                if (item) insertHttpInto(item);
                 setOpen(false);
               }}
             >
               Insert HTTP Block
             </Item>
-            <Item
-              onSelect={() => {
-                const item = items.find((i) => i.id === activeItemId);
-                if (item && (item.kind === "investigation" || item.kind === "note")) {
-                  const content = `${item.content ?? ""}\n${HTTP_SNIPPET}`;
-                  useScratchpad.getState().updateRequest(item.id, { content });
-                  toast.success("Type /request in Edit to pick a saved request");
-                } else toast.error("Open an investigation first");
-                setOpen(false);
-              }}
-            >
-              Insert Existing Request
-            </Item>
+            {requests.map((req) => (
+              <Item
+                key={`ins-${req.id}`}
+                onSelect={() => {
+                  const item = requireDoc();
+                  if (!item) {
+                    setOpen(false);
+                    return;
+                  }
+                  const block = serializeHttp({
+                    name: req.name,
+                    method: req.method ?? "GET",
+                    url: req.url ?? "",
+                    headers: req.headers,
+                    body: req.body,
+                  });
+                  insertHttpInto(item, block);
+                  toast.success(`Inserted ${req.name}`);
+                  setOpen(false);
+                }}
+              >
+                Insert Existing Request · {req.name}
+              </Item>
+            ))}
+            {requests.length === 0 ? (
+              <Item
+                onSelect={() => {
+                  const item = requireDoc();
+                  if (item) {
+                    insertHttpInto(item);
+                    toast.success("Inserted HTTP block");
+                  }
+                  setOpen(false);
+                }}
+              >
+                Insert Existing Request
+              </Item>
+            ) : null}
           </Command.Group>
           <Command.Group heading="Run" className="px-1 py-1 text-2xs font-medium uppercase tracking-wider text-subtle">
             <Item
@@ -115,7 +145,7 @@ export function CommandPalette({ onToggleAppearance }: { onToggleAppearance?: ()
                 setOpen(false);
               }}
             >
-              Run request
+              Run Request
             </Item>
             <Item
               onSelect={() => {
@@ -124,7 +154,7 @@ export function CommandPalette({ onToggleAppearance }: { onToggleAppearance?: ()
                 setOpen(false);
               }}
             >
-              Run investigation
+              Run Investigation
             </Item>
             <Item
               onSelect={() => {
@@ -135,13 +165,13 @@ export function CommandPalette({ onToggleAppearance }: { onToggleAppearance?: ()
               Cancel running request
             </Item>
             <Item onSelect={() => { useScratchpad.getState().setFocusMode(!useScratchpad.getState().focusMode); setOpen(false); }}>
-              Toggle focus mode
+              Focus Mode
             </Item>
             <Item onSelect={() => { useScratchpad.getState().setSidebarHidden(!useScratchpad.getState().sidebarHidden); setOpen(false); }}>
-              Toggle navigator
+              Toggle Sidebar
             </Item>
             <Item onSelect={() => { useScratchpad.getState().setInspectorHidden(!useScratchpad.getState().inspectorHidden); setOpen(false); }}>
-              Toggle inspector
+              Toggle Inspector
             </Item>
             <Item
               onSelect={() => {
@@ -149,7 +179,7 @@ export function CommandPalette({ onToggleAppearance }: { onToggleAppearance?: ()
                 setOpen(false);
               }}
             >
-              Toggle light / dark
+              Toggle Theme
             </Item>
             <Item onSelect={() => { setSidebarView("history"); setOpen(false); }}>Open history</Item>
             <Item onSelect={() => { setSidebarView("search"); setOpen(false); }}>Search workspace</Item>
@@ -233,6 +263,7 @@ export function CommandPalette({ onToggleAppearance }: { onToggleAppearance?: ()
             </Item>
             <Item
               onSelect={() => {
+                useScratchpad.getState().setSyncIntent(true);
                 useScratchpad.getState().setSyncOpen(true);
                 setOpen(false);
               }}

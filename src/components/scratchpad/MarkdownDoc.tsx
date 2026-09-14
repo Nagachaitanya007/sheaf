@@ -1,7 +1,7 @@
 import { Check, Copy, Download, MoreHorizontal, Play, Plus, Square } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Badge, methodTone } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -11,12 +11,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { IconTip } from "@/components/ui/icon-tip";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { applyExtractions, blockKey, parseExtractDirectives } from "@/lib/scratchpad/extract";
-import { toCurl } from "@/lib/scratchpad/http";
-import { escapeHtml, inlineToHtml, parseMarkdown } from "@/lib/scratchpad/markdown";
+import { rewriteHttpRaw, toCurl } from "@/lib/scratchpad/http";
+import { escapeHtml, inlineToHtml, parseMarkdown, replaceHttpSpan } from "@/lib/scratchpad/markdown";
 import { documentHttpBlocks, runDocument, sendParsed, cancelSend } from "@/lib/scratchpad/send";
 import { useScratchpad } from "@/lib/scratchpad/store";
-import type { BlockResult, HttpResponse, Item, ParsedRequest } from "@/lib/scratchpad/types";
+import { HTTP_METHODS, type BlockResult, type HeaderRow, type HttpMethod, type HttpResponse, type Item, type ParsedRequest } from "@/lib/scratchpad/types";
 import { cn, copyText, downloadText, formatBytes, formatDuration } from "@/lib/utils";
 import { CodeBlock } from "./CodeBlock";
 import { ResponseView } from "./ResponseView";
@@ -35,14 +37,15 @@ export function MarkdownDoc({
   const blocks = useMemo(() => parseMarkdown(source || ""), [source]);
   const selectItem = useScratchpad((s) => s.selectItem);
   const items = useScratchpad((s) => s.items);
+  const updateRequest = useScratchpad((s) => s.updateRequest);
 
   if (!blocks.length) {
     return (
       <div className="px-8 py-12">
         <p className="font-serif text-xl font-semibold tracking-tight">Write what you're trying to understand.</p>
         <p className="mt-2 max-w-md text-sm leading-relaxed text-muted">
-          Markdown, executable HTTP, and observations live in the same document. Type <code className="md-code">/http</code> in
-          Edit, or insert a request below.
+          Markdown, executable HTTP, and observations live in the same document. Press{" "}
+          <code className="md-code">/</code> to insert a block, or add a request below.
         </p>
         {onInsertHttp ? (
           <Button size="sm" variant="send" className="mt-4" onClick={onInsertHttp}>
@@ -160,13 +163,19 @@ export function MarkdownDoc({
           const result = item?.blockResults?.find((b) => b.blockKey === key);
           return (
             <HttpCard
-              key={i}
+              key={`http-${index}`}
               item={item}
               request={block.request}
               raw={block.raw}
+              start={block.start}
+              end={block.end}
               blockKey={key}
               index={index}
               result={result}
+              onRewrite={(nextRaw) => {
+                if (!item) return;
+                updateRequest(item.id, { content: replaceHttpSpan(item.content ?? "", block.start, block.end, nextRaw) });
+              }}
             />
           );
         }
@@ -180,32 +189,94 @@ function HttpCard({
   item,
   request,
   raw,
+  start,
+  end,
   blockKey: key,
   index,
   result,
+  onRewrite,
 }: {
   item?: Item;
   request: ParsedRequest;
   raw: string;
+  start: number;
+  end: number;
   blockKey: string;
   index: number;
   result?: BlockResult;
+  onRewrite: (nextRaw: string) => void;
 }) {
+  void start;
+  void end;
   const sending = useScratchpad((s) => s.sendState === "sending");
   const addItem = useScratchpad((s) => s.addItem);
   const updateRequest = useScratchpad((s) => s.updateRequest);
   const setExtractedVar = useScratchpad((s) => s.setExtractedVar);
   const setUtility = useScratchpad((s) => s.setUtility);
+  const focusHttpIndex = useScratchpad((s) => s.focusHttpIndex);
   const [open, setOpen] = useState(true);
+  const [details, setDetails] = useState(false);
   const [path, setPath] = useState("$.accessToken");
+  const [showSource, setShowSource] = useState(false);
+  const urlRef = useRef<HTMLInputElement>(null);
+  const urlFocused = useRef(false);
+  const [urlDraft, setUrlDraft] = useState(request.url);
   const extracts = parseExtractDirectives(raw, key);
   const parsedRequest = { ...request, extracts, name: request.name ?? key };
+  const liveHeaders = request.headers;
+
+  useEffect(() => {
+    if (!urlFocused.current) setUrlDraft(request.url);
+  }, [request.url]);
+
+  useEffect(() => {
+    if (focusHttpIndex !== index) return;
+    urlRef.current?.focus();
+    urlRef.current?.select();
+    setDetails(true);
+    useScratchpad.getState().setFocusHttpIndex(null);
+  }, [focusHttpIndex, index]);
+
+  function patch(next: Partial<{ method: HttpMethod; url: string; headers: HeaderRow[]; body: string }>) {
+    onRewrite(rewriteHttpRaw(raw, next));
+  }
 
   return (
     <div className="http-block">
-      <div className="flex items-center gap-2 px-3 py-2">
-        <Badge tone={methodTone(request.method)}>{request.method}</Badge>
-        <code className="min-w-0 flex-1 truncate font-mono text-xs text-foreground">{request.name ? `${request.name} · ${request.url}` : request.url}</code>
+      <div className="flex flex-col gap-2 px-3 py-2 sm:flex-row sm:items-center">
+        <Select
+          value={request.method}
+          onValueChange={(value) => patch({ method: value as HttpMethod })}
+        >
+          <SelectTrigger className="h-8 w-[108px] font-mono text-xs font-semibold" aria-label="Request method">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {HTTP_METHODS.map((m) => (
+              <SelectItem key={m} value={m}>
+                {m}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Input
+          ref={urlRef}
+          value={urlDraft}
+          onFocus={() => {
+            urlFocused.current = true;
+          }}
+          onBlur={() => {
+            urlFocused.current = false;
+            if (urlDraft !== request.url) patch({ url: urlDraft });
+          }}
+          onChange={(e) => {
+            setUrlDraft(e.target.value);
+            patch({ url: e.target.value });
+          }}
+          placeholder="https://api.example.com or {{baseUrl}}/path"
+          className="h-8 min-w-0 flex-1 font-mono text-xs"
+          aria-label="Request URL"
+        />
         {result ? (
           <Badge tone={result.response.error ? "danger" : result.response.status >= 400 ? "warn" : "success"}>
             {result.response.error ? result.response.errorKind ?? "ERR" : result.response.status}
@@ -217,14 +288,17 @@ function HttpCard({
             Cancel
           </Button>
         ) : (
-          <Button
-            size="sm"
-            variant="send"
-            onClick={() => void sendParsed(parsedRequest, { sourceItem: item, attachToId: item?.id, blockKey: key })}
-          >
-            <Play className="size-3" />
-            Run
-          </Button>
+          <IconTip label="Run request">
+            <Button
+              size="sm"
+              variant="send"
+              aria-label="Run request"
+              onClick={() => void sendParsed(parsedRequest, { sourceItem: item, attachToId: item?.id, blockKey: key })}
+            >
+              <Play className="size-3" />
+              Run
+            </Button>
+          </IconTip>
         )}
         <DropdownMenu>
           <IconTip label="More actions">
@@ -235,6 +309,12 @@ function HttpCard({
             </DropdownMenuTrigger>
           </IconTip>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={() => setDetails((v) => !v)}>
+              {details ? "Hide headers & body" : "Edit headers & body"}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setShowSource((v) => !v)}>
+              {showSource ? "Hide source" : "Show source"}
+            </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={() => {
                 if (item) void runDocument(item, index);
@@ -269,9 +349,73 @@ function HttpCard({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className="overflow-auto border-t border-border px-3 py-2">
-        <CodeBlock code={raw} lang="http" className="text-muted" />
-      </div>
+      {details ? (
+        <div className="space-y-2 border-t border-border px-3 py-2">
+          {liveHeaders.map((h, hi) => (
+            <div key={hi} className="grid grid-cols-[1fr_1fr_28px] gap-1.5">
+              <Input
+                value={h.key}
+                placeholder="Header"
+                className="h-7 font-mono text-2xs"
+                aria-label="Header name"
+                onChange={(e) => {
+                  const headers = request.headers.map((row, idx) => (idx === hi ? { ...row, key: e.target.value } : row));
+                  patch({ headers });
+                }}
+              />
+              <Input
+                value={h.value}
+                placeholder="Value"
+                className="h-7 font-mono text-2xs"
+                aria-label="Header value"
+                onChange={(e) => {
+                  const headers = request.headers.map((row, idx) => (idx === hi ? { ...row, value: e.target.value } : row));
+                  patch({ headers });
+                }}
+              />
+              <IconTip label="Remove header">
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label="Remove header"
+                  onClick={() => patch({ headers: request.headers.filter((_, idx) => idx !== hi) })}
+                >
+                  ×
+                </Button>
+              </IconTip>
+            </div>
+          ))}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() =>
+                patch({
+                  headers: [...request.headers, { id: `h${request.headers.length}`, key: "", value: "", enabled: true }],
+                })
+              }
+            >
+              Add header
+            </Button>
+          </div>
+          <Textarea
+            value={request.body}
+            onChange={(e) => patch({ body: e.target.value })}
+            placeholder="Request body (JSON, text…)"
+            className="min-h-20 font-mono text-xs"
+            aria-label="Request body"
+          />
+        </div>
+      ) : null}
+      {showSource ? (
+        <div className="overflow-auto border-t border-border px-3 py-2">
+          <CodeBlock code={raw} lang="http" />
+        </div>
+      ) : !details ? (
+        <div className="overflow-auto border-t border-border px-3 py-2">
+          <CodeBlock code={raw} lang="http" copyable={false} />
+        </div>
+      ) : null}
       {result ? (
         <div className="border-t border-border">
           <button
@@ -358,7 +502,7 @@ function ExtractBar({
         As variable
       </Button>
       <Button size="sm" variant="ghost" onClick={onUtility}>
-        Open in utilities
+        Open in JSON
       </Button>
       <Button
         size="sm"

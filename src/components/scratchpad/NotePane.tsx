@@ -1,8 +1,11 @@
-import { useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { Textarea } from "@/components/ui/textarea";
+import { IconTip } from "@/components/ui/icon-tip";
 import type { Item } from "@/lib/scratchpad/types";
 import { serializeHttp } from "@/lib/scratchpad/http";
+import { appendHttpFence, countHttpBlocks } from "@/lib/scratchpad/markdown";
 import { applySlash, detectSlash, requestCommand, type SlashCommand } from "@/lib/scratchpad/slash";
+import { insertHttpInto } from "@/lib/scratchpad/insert-http";
 import { useScratchpad } from "@/lib/scratchpad/store";
 import { SlashMenu, slashMatches } from "./SlashMenu";
 import { InvestigationToolbar, MarkdownDoc } from "./MarkdownDoc";
@@ -10,8 +13,9 @@ import { InvestigationToolbar, MarkdownDoc } from "./MarkdownDoc";
 export function NotePane({ item }: { item: Item }) {
   const updateRequest = useScratchpad((s) => s.updateRequest);
   const items = useScratchpad((s) => s.items);
-  const [mode, setMode] = useState<"preview" | "edit">("preview");
-  const [slash, setSlash] = useState<{ from: number; caret: number; query: string; index: number } | null>(null);
+  const mode = useScratchpad((s) => s.docMode);
+  const setMode = useScratchpad((s) => s.setDocMode);
+  const [slash, setSlash] = useState<{ from: number; caret: number; query: string; index: number; preview?: boolean } | null>(null);
   const areaRef = useRef<HTMLTextAreaElement>(null);
   const investigation = item.kind === "investigation";
   const extras = useMemo(
@@ -34,27 +38,101 @@ export function NotePane({ item }: { item: Item }) {
     [items],
   );
 
+  const pick = useCallback(
+    (cmd: SlashCommand) => {
+      if (!slash) return;
+      if (cmd.kind === "request" && !cmd.insert) {
+        setSlash({ ...slash, query: slash.query || "req", index: 0 });
+        return;
+      }
+      if (slash.preview) {
+        const content = appendAtEnd(item.content ?? "", cmd.insert);
+        updateRequest(item.id, { content });
+        setSlash(null);
+        if (cmd.kind === "http") {
+          useScratchpad.getState().setFocusHttpIndex(Math.max(0, countHttpBlocks(content) - 1));
+          setMode("preview");
+        } else {
+          setMode("edit");
+        }
+        return;
+      }
+      const next = applySlash(item.content ?? "", slash.from, slash.caret, cmd.insert, cmd.caretOffset);
+      updateRequest(item.id, { content: next.text });
+      setSlash(null);
+      requestAnimationFrame(() => {
+        const el = areaRef.current;
+        if (!el) return;
+        el.focus();
+        el.setSelectionRange(next.caret, next.caret);
+      });
+    },
+    [slash, item.content, item.id, updateRequest, setMode],
+  );
+
+  useEffect(() => {
+    if (mode !== "preview") return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (slash?.preview) {
+        const q = slash.query.toLowerCase();
+        const extraPool = q.length >= 2 || q.startsWith("req") ? extras : [];
+        const matches = slashMatches(slash.query, extraPool);
+        if (e.key === "Escape") {
+          e.preventDefault();
+          setSlash(null);
+          return;
+        }
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setSlash((s) => (s ? { ...s, index: Math.min(s.index + 1, Math.max(matches.length - 1, 0)) } : s));
+          return;
+        }
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setSlash((s) => (s ? { ...s, index: Math.max(s.index - 1, 0) } : s));
+          return;
+        }
+        if (e.key === "Enter" || e.key === "Tab") {
+          e.preventDefault();
+          if (matches[slash.index]) pick(matches[slash.index]!);
+          return;
+        }
+        if (e.key === "Backspace") {
+          e.preventDefault();
+          setSlash((s) => (s ? { ...s, query: s.query.slice(0, -1), index: 0 } : s));
+          return;
+        }
+        if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && e.key !== "/") {
+          e.preventDefault();
+          setSlash((s) => (s ? { ...s, query: s.query + e.key, index: 0 } : s));
+          return;
+        }
+      }
+      if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      if (target && target.closest("input, textarea, select, [contenteditable='true']")) return;
+      e.preventDefault();
+      setSlash({ from: (item.content ?? "").length, caret: (item.content ?? "").length, query: "", index: 0, preview: true });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mode, item.content, slash, extras, item.id, pick]);
+
+  useEffect(() => {
+    if (!slash?.preview) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t?.closest("[aria-label='Insert block']")) return;
+      setSlash(null);
+    };
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [slash?.preview]);
+
   function onChange(value: string, caret: number) {
     updateRequest(item.id, { content: value });
     const hit = detectSlash(value, caret);
     setSlash(hit ? { from: hit.from, caret, query: hit.query, index: 0 } : null);
-  }
-
-  function pick(cmd: SlashCommand) {
-    if (!slash) return;
-    if (cmd.kind === "request" && !cmd.insert) {
-      setSlash({ ...slash, query: slash.query || "req", index: 0 });
-      return;
-    }
-    const next = applySlash(item.content ?? "", slash.from, slash.caret, cmd.insert, cmd.caretOffset);
-    updateRequest(item.id, { content: next.text });
-    setSlash(null);
-    requestAnimationFrame(() => {
-      const el = areaRef.current;
-      if (!el) return;
-      el.focus();
-      el.setSelectionRange(next.caret, next.caret);
-    });
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -98,21 +176,40 @@ export function NotePane({ item }: { item: Item }) {
         {investigation ? (
           <div className="ml-2 flex items-center gap-2">
             <InvestigationToolbar item={item} />
-            <button
-              type="button"
-              className="text-2xs text-muted hover:text-foreground"
-              onClick={() => {
-                insertHttpInto(item);
-                setMode("edit");
-              }}
-            >
-              Insert HTTP
-            </button>
+            <IconTip label="Insert HTTP request">
+              <button
+                type="button"
+                className="text-2xs text-muted hover:text-foreground"
+                onClick={() => insertHttpInto(item)}
+              >
+                Insert HTTP
+              </button>
+            </IconTip>
+            <IconTip label="Insert block">
+              <button
+                type="button"
+                className="text-2xs text-muted hover:text-foreground"
+                aria-label="Insert block"
+                onClick={() =>
+                  setSlash({
+                    from: (item.content ?? "").length,
+                    caret: (item.content ?? "").length,
+                    query: "",
+                    index: 0,
+                    preview: mode === "preview",
+                  })
+                }
+              >
+                /
+              </button>
+            </IconTip>
           </div>
         ) : (
           <span className="ml-auto text-2xs text-subtle">Type / for blocks · HTTP is executable</span>
         )}
-        {investigation && mode === "preview" ? null : investigation ? (
+        {investigation && mode === "preview" ? (
+          <span className="ml-auto hidden text-2xs text-subtle sm:inline">/ inserts blocks · click a request to edit</span>
+        ) : investigation ? (
           <span className="ml-auto text-2xs text-subtle">/ inserts blocks · ⌘⇧Enter runs</span>
         ) : null}
       </div>
@@ -128,7 +225,7 @@ export function NotePane({ item }: { item: Item }) {
             onClick={(e) => onChange((e.target as HTMLTextAreaElement).value, (e.target as HTMLTextAreaElement).selectionStart)}
             onBlur={() => setTimeout(() => setSlash(null), 160)}
           />
-          {slash ? (
+          {slash && !slash.preview ? (
             <SlashMenu
               query={slash.query}
               extras={menuExtras}
@@ -140,24 +237,32 @@ export function NotePane({ item }: { item: Item }) {
           ) : null}
         </div>
       ) : (
-        <div className="min-h-0 flex-1 overflow-auto">
+        <div className="relative min-h-0 flex-1 overflow-auto">
           <MarkdownDoc
             source={item.content ?? ""}
             item={item}
-            onInsertHttp={() => {
-              insertHttpInto(item);
-              setMode("edit");
-            }}
+            onInsertHttp={() => insertHttpInto(item)}
           />
+          {slash?.preview ? (
+            <SlashMenu
+              query={slash.query}
+              extras={menuExtras}
+              index={slash.index}
+              onIndex={(i) => setSlash((s) => (s ? { ...s, index: i } : s))}
+              onPick={pick}
+              style={{ position: "absolute", left: 24, top: 24 }}
+            />
+          ) : null}
         </div>
       )}
     </div>
   );
 }
 
-export function insertHttpInto(item: Item) {
-  const content = `${item.content ?? ""}${item.content?.endsWith("\n") || !item.content ? "" : "\n"}\n\`\`\`http\nGET https://api.example.com/\n\n\`\`\`\n`;
-  useScratchpad.getState().updateRequest(item.id, { content });
+function appendAtEnd(source: string, insert: string): string {
+  if (!source.trim()) return insert;
+  if (insert.startsWith("```http")) return appendHttpFence(source, insert.replace(/^```http\n/, "").replace(/\n```\n?$/, ""));
+  return source.replace(/\s*$/, "") + (insert.startsWith("\n") ? insert : `\n\n${insert}`);
 }
 
 function caretMenuStyle(el: HTMLTextAreaElement | null, caret: number): CSSProperties {
@@ -167,8 +272,8 @@ function caretMenuStyle(el: HTMLTextAreaElement | null, caret: number): CSSPrope
   const paddingTop = Number.parseFloat(style.paddingTop) || 0;
   const paddingLeft = Number.parseFloat(style.paddingLeft) || 0;
   const lines = el.value.slice(0, caret).split("\n");
-  const row = lines.length - 1;
   const col = lines[lines.length - 1]?.length ?? 0;
+  const row = lines.length - 1;
   const top = paddingTop + row * lineHeight - el.scrollTop + lineHeight + 6;
   const left = Math.min(paddingLeft + col * 7.4, Math.max(8, el.clientWidth - 296));
   return {

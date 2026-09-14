@@ -236,13 +236,17 @@ function TitleBar({
           )
         ) : item?.kind === "investigation" || item?.kind === "note" ? (
           sendState === "sending" ? (
-            <Button size="sm" variant="ghost" onClick={() => cancelSend()}>
-              <Square className="size-3.5" />
-            </Button>
+            <IconTip label="Cancel request">
+              <Button size="sm" variant="ghost" aria-label="Cancel request" onClick={() => cancelSend()}>
+                <Square className="size-3.5" />
+              </Button>
+            </IconTip>
           ) : (
-            <Button size="sm" variant="send" className="hidden sm:inline-flex" onClick={() => void runDocument(item)}>
-              Run
-            </Button>
+            <IconTip label="Run investigation">
+              <Button size="sm" variant="send" className="hidden sm:inline-flex" onClick={() => void runDocument(item)}>
+                Run
+              </Button>
+            </IconTip>
           )
         ) : null}
       </div>
