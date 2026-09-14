@@ -34,8 +34,8 @@ export function Sidebar() {
   const view = useScratchpad((s) => s.sidebarView);
   const setView = useScratchpad((s) => s.setSidebarView);
   return (
-    <div className="flex h-full min-h-0 flex-col bg-surface">
-      <div className="flex items-center border-b border-border px-1">
+    <div className="sidebar-rail relative flex h-full min-h-0 flex-col overflow-visible bg-surface">
+      <div className="sidebar-surface flex min-h-0 flex-1 flex-col border-r border-border bg-surface">\n      <div className="sidebar-tabs flex items-center border-b border-border px-1">
         <SideTab active={view === "workspace"} onClick={() => setView("workspace")} icon={<Folder className="size-3.5" />} label="Workspace" />
         <SideTab active={view === "history"} onClick={() => setView("history")} icon={<History className="size-3.5" />} label="History" />
         <SideTab active={view === "search"} onClick={() => setView("search")} icon={<Search className="size-3.5" />} label="Search" />
@@ -68,7 +68,7 @@ function SideTab({
       title={label}
     >
       {icon}
-      <span className="truncate">{label}</span>
+      <span className="rail-tab-label truncate">{label}</span>
     </button>
   );
 }
@@ -195,7 +195,7 @@ function CollectionNode({
         <button type="button" className="flex min-w-0 flex-1 items-center gap-1 py-1.5 text-left" onClick={() => toggle(id)}>
           <ChevronRight className={cn("size-3.5 text-subtle transition-transform", open && "rotate-90")} />
           {open ? <FolderOpen className="size-3.5 text-muted" /> : <Folder className="size-3.5 text-muted" />}
-          <span className="truncate text-sm font-medium">{name}</span>
+          <span className="sidebar-name-text truncate text-sm font-medium" title={name}>{name}</span>
         </button>
         <RowMenu
           onRename={onRename}
@@ -246,7 +246,7 @@ function ItemNode({
           <button type="button" className="flex min-w-0 flex-1 items-center gap-1 py-1 text-left" onClick={() => toggle(item.id)}>
             <ChevronRight className={cn("size-3 text-subtle transition-transform", open && "rotate-90")} />
             <Folder className="size-3.5 text-muted" />
-            <span className="truncate text-sm">{item.name}</span>
+            <span className="sidebar-name-text truncate text-sm" title={item.name}>{item.name}</span>
           </button>
           <RowMenu
             onRename={() => onRenameItem(item)}
@@ -276,7 +276,8 @@ function ItemNode({
       >
         {item.kind === "request" ? (
           <Badge tone={methodTone(item.method ?? "GET")} className="min-w-11 justify-center px-1">
-            {item.method ?? "GET"}
+            <span className="method-full">{item.method ?? "GET"}</span>
+            <span className="method-compact">{(item.method ?? "GET").slice(0, 1)}</span>
           </Badge>
         ) : item.kind === "investigation" ? (
           <FileSearch className="size-3.5 text-accent" />
@@ -365,7 +366,8 @@ function HistoryList() {
               }}
             >
               <Badge tone={methodTone(h.method)} className="mt-0.5 min-w-11 justify-center px-1">
-                {h.method}
+                <span className="method-full">{h.method}</span>
+                <span className="method-compact">{h.method.slice(0, 1)}</span>
               </Badge>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm">{h.name}</span>
