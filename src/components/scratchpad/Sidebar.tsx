@@ -198,7 +198,7 @@ function CollectionNode({
         <button type="button" className="flex min-w-0 flex-1 items-center gap-1 py-1.5 text-left" onClick={() => toggle(id)}>
           <ChevronRight className={cn("size-3.5 text-subtle transition-transform", open && "rotate-90")} />
           {open ? <FolderOpen className="size-3.5 text-muted" /> : <Folder className="size-3.5 text-muted" />}
-          <span className="min-w-0 truncate text-sm font-medium" title={name}>{name}</span>
+          <span className="min-w-0 flex-1 truncate text-sm font-medium" title={name}>{name}</span>
         </button>
         <RowMenu
           onRename={onRename}
@@ -249,7 +249,7 @@ function ItemNode({
           <button type="button" className="flex min-w-0 flex-1 items-center gap-1 py-1 text-left" onClick={() => toggle(item.id)}>
             <ChevronRight className={cn("size-3 text-subtle transition-transform", open && "rotate-90")} />
             <Folder className="size-3.5 text-muted" />
-            <span className="min-w-0 truncate text-sm" title={item.name}>{item.name}</span>
+            <span className="min-w-0 flex-1 truncate text-sm" title={item.name}>{item.name}</span>
           </button>
           <RowMenu
             onRename={() => onRenameItem(item)}
@@ -286,7 +286,7 @@ function ItemNode({
         ) : (
           <FileText className="size-3.5 text-muted" />
         )}
-        <span className="truncate text-sm">{item.name}</span>
+        <span className="min-w-0 flex-1 truncate text-sm" title={item.name}>{item.name}</span>
       </button>
       <RowMenu
         onRename={() => onRenameItem(item)}
