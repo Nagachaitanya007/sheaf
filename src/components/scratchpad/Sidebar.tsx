@@ -26,8 +26,9 @@ import { Input } from "@/components/ui/input";
 import { IconTip } from "@/components/ui/icon-tip";
 import { searchWorkspace } from "@/lib/scratchpad/search";
 import { useScratchpad } from "@/lib/scratchpad/store";
-import type { Item } from "@/lib/scratchpad/types";
+import type { Item, ItemKind } from "@/lib/scratchpad/types";
 import { cn, formatRelative } from "@/lib/utils";
+import { NameDialog } from "./NameDialog";
 
 export function Sidebar() {
   const view = useScratchpad((s) => s.sidebarView);
@@ -70,6 +71,14 @@ function WorkspaceTree() {
   const items = useScratchpad((s) => s.items);
   const addCollection = useScratchpad((s) => s.addCollection);
   const addItem = useScratchpad((s) => s.addItem);
+  const renameCollection = useScratchpad((s) => s.renameCollection);
+  const renameItem = useScratchpad((s) => s.renameItem);
+  const [rename, setRename] = useState<
+    | { type: "collection"; id: string; name: string }
+    | { type: "item"; id: string; name: string; kind: ItemKind }
+    | null
+  >(null);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center justify-between px-3 py-2">
@@ -97,17 +106,62 @@ function WorkspaceTree() {
       </div>
       <div className="min-h-0 flex-1 overflow-auto px-1 pb-4">
         {collections.map((c) => (
-          <CollectionNode key={c.id} id={c.id} name={c.name} items={items} />
+          <CollectionNode
+            key={c.id}
+            id={c.id}
+            name={c.name}
+            items={items}
+            onRename={() => setRename({ type: "collection", id: c.id, name: c.name })}
+            onRenameItem={(item) => setRename({ type: "item", id: item.id, name: item.name, kind: item.kind })}
+          />
         ))}
       </div>
+      <NameDialog
+        open={Boolean(rename)}
+        title={
+          rename?.type === "collection"
+            ? "Rename collection"
+            : rename?.kind === "folder"
+              ? "Rename folder"
+              : rename?.kind === "request"
+                ? "Rename request"
+                : rename?.kind === "investigation"
+                  ? "Rename investigation"
+                  : "Rename note"
+        }
+        initial={rename?.name ?? ""}
+        submitLabel="Rename"
+        existing={
+          rename?.type === "collection" ? collections.filter((c) => c.id !== rename.id).map((c) => c.name) : []
+        }
+        onOpenChange={(next) => {
+          if (!next) setRename(null);
+        }}
+        onSubmit={(name) => {
+          if (!rename) return;
+          if (rename.type === "collection") renameCollection(rename.id, name);
+          else renameItem(rename.id, name);
+        }}
+      />
     </div>
   );
 }
 
-function CollectionNode({ id, name, items }: { id: string; name: string; items: Item[] }) {
+function CollectionNode({
+  id,
+  name,
+  items,
+  onRename,
+  onRenameItem,
+}: {
+  id: string;
+  name: string;
+  items: Item[];
+  onRename: () => void;
+  onRenameItem: (item: Item) => void;
+}) {
   const collapsedIds = useScratchpad((s) => s.collapsedIds);
   const toggle = useScratchpad((s) => s.toggleCollapsed);
-  const renameCollection = useScratchpad((s) => s.renameCollection);
   const deleteCollection = useScratchpad((s) => s.deleteCollection);
   const addItem = useScratchpad((s) => s.addItem);
   const open = !collapsedIds.includes(id);
@@ -121,10 +175,7 @@ function CollectionNode({ id, name, items }: { id: string; name: string; items: 
           <span className="truncate text-sm font-medium">{name}</span>
         </button>
         <RowMenu
-          onRename={() => {
-            const next = window.prompt("Collection name", name);
-            if (next) renameCollection(id, next);
-          }}
+          onRename={onRename}
           onDelete={() => deleteCollection(id)}
           extras={[
             { label: "New investigation", run: () => addItem("investigation", null, id) },
@@ -134,18 +185,27 @@ function CollectionNode({ id, name, items }: { id: string; name: string; items: 
         />
       </div>
       {open
-        ? roots.map((item) => <ItemNode key={item.id} item={item} items={items} depth={1} />)
+        ? roots.map((item) => <ItemNode key={item.id} item={item} items={items} depth={1} onRenameItem={onRenameItem} />)
         : null}
     </div>
   );
 }
 
-function ItemNode({ item, items, depth }: { item: Item; items: Item[]; depth: number }) {
+function ItemNode({
+  item,
+  items,
+  depth,
+  onRenameItem,
+}: {
+  item: Item;
+  items: Item[];
+  depth: number;
+  onRenameItem: (item: Item) => void;
+}) {
   const activeItemId = useScratchpad((s) => s.activeItemId);
   const collapsedIds = useScratchpad((s) => s.collapsedIds);
   const toggle = useScratchpad((s) => s.toggleCollapsed);
   const selectItem = useScratchpad((s) => s.selectItem);
-  const renameItem = useScratchpad((s) => s.renameItem);
   const deleteItem = useScratchpad((s) => s.deleteItem);
   const duplicateItem = useScratchpad((s) => s.duplicateItem);
   const addItem = useScratchpad((s) => s.addItem);
@@ -166,10 +226,7 @@ function ItemNode({ item, items, depth }: { item: Item; items: Item[]; depth: nu
             <span className="truncate text-sm">{item.name}</span>
           </button>
           <RowMenu
-            onRename={() => {
-              const next = window.prompt("Folder name", item.name);
-              if (next) renameItem(item.id, next);
-            }}
+            onRename={() => onRenameItem(item)}
             onDelete={() => deleteItem(item.id)}
             extras={[
               { label: "New investigation", run: () => addItem("investigation", item.id, item.collectionId) },
@@ -178,7 +235,7 @@ function ItemNode({ item, items, depth }: { item: Item; items: Item[]; depth: nu
             ]}
           />
         </div>
-        {open ? children.map((c) => <ItemNode key={c.id} item={c} items={items} depth={depth + 1} />) : null}
+        {open ? children.map((c) => <ItemNode key={c.id} item={c} items={items} depth={depth + 1} onRenameItem={onRenameItem} />) : null}
       </div>
     );
   }
@@ -206,10 +263,7 @@ function ItemNode({ item, items, depth }: { item: Item; items: Item[]; depth: nu
         <span className="truncate text-sm">{item.name}</span>
       </button>
       <RowMenu
-        onRename={() => {
-          const next = window.prompt("Name", item.name);
-          if (next) renameItem(item.id, next);
-        }}
+        onRename={() => onRenameItem(item)}
         onDelete={() => deleteItem(item.id)}
         extras={[{ label: "Duplicate", run: () => duplicateItem(item.id) }]}
       />
@@ -232,7 +286,7 @@ function RowMenu({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="mr-1 hidden size-7 items-center justify-center rounded-md text-subtle hover:text-foreground group-hover:flex"
+            className="mr-1 flex size-7 shrink-0 items-center justify-center rounded-md text-subtle hover:text-foreground opacity-100 md:opacity-0 md:group-hover:opacity-100 md:data-[state=open]:opacity-100 md:focus-visible:opacity-100"
             aria-label="More actions"
           >
             <MoreHorizontal className="size-3.5" />

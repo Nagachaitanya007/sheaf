@@ -75,7 +75,7 @@ function Node({
             <button
               type="button"
               className="hover:text-foreground"
-              onClick={() => useScratchpad.getState().setUtility("jwt")}
+              onClick={() => useScratchpad.getState().setUtility("jwt", String(value ?? ""))}
             >
               jwt
             </button>
@@ -84,7 +84,7 @@ function Node({
             <button
               type="button"
               className="hover:text-foreground"
-              onClick={() => useScratchpad.getState().setUtility("epoch")}
+              onClick={() => useScratchpad.getState().setUtility("epoch", String(value))}
             >
               epoch
             </button>

@@ -399,7 +399,7 @@ function Keybindings() {
       }
       if (mod && e.shiftKey && e.key.toLowerCase() === "u") {
         e.preventDefault();
-        setUtility("json-format");
+        setUtility("json-format", useScratchpad.getState().lastResponse?.body);
         return;
       }
       if (mod && e.key === "Enter") {

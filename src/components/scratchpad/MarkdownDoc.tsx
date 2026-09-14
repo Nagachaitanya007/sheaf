@@ -459,7 +459,7 @@ function HttpCard({
                     setExtractedVar(item.id, name === "token" && p.includes("accessToken") ? "token" : name, value, "investigation");
                     toast.success(`Extracted ${name}`);
                   }}
-                  onUtility={() => setUtility("json-format")}
+                  onUtility={() => setUtility("json-format", result.response.body)}
                 />
               ) : null}
               {result.extracted && Object.keys(result.extracted).length ? (
@@ -492,7 +492,6 @@ function ExtractBar({
   onUtility: () => void;
 }) {
   void item;
-  void response;
   return (
     <div className="flex flex-wrap items-center gap-2 border-t border-border px-3 py-2">
       <span className="text-2xs text-subtle">Extract</span>
@@ -503,6 +502,16 @@ function ExtractBar({
       </Button>
       <Button size="sm" variant="ghost" onClick={onUtility}>
         Open in JSON
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={async () => {
+          const ok = await copyText(response.body);
+          toast[ok ? "success" : "error"](ok ? "Copied response" : "Copy failed");
+        }}
+      >
+        Copy
       </Button>
       <Button
         size="sm"

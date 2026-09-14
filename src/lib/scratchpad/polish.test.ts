@@ -10,6 +10,9 @@ import { countSecrets, payloadHasSecretKeys, stripSecrets } from "./secrets.ts";
 import { applySlash, detectSlash, filterSlash, HTTP_SNIPPET, requestCommand } from "./slash.ts";
 import { decideSyncPush, looksOffline } from "./sync-core.ts";
 import { formatSyncTime } from "./sync-prefs.ts";
+import { nameError, normalizeName, secretInputType } from "./names.ts";
+import { extractMarkdownTitle, replaceMarkdownTitle } from "./title.ts";
+import { prettyJson } from "./utilities.ts";
 import type { PersistSnapshot } from "./types.ts";
 
 test("slash does not activate inside URLs or paths", () => {
@@ -310,3 +313,59 @@ test("appendHttpFence keeps HTTP executable after re-import", () => {
   assert.equal(http.request.method, "GET");
   assert.equal(http.request.url, "https://example.com/ping");
 });
+
+test("names trim, reject empty, and reject duplicates case-insensitively", () => {
+  assert.equal(normalizeName("  Testing  env  "), "Testing env");
+  assert.equal(nameError("   "), "Name is required");
+  assert.equal(nameError("Development", ["development"]), "That name is already in use");
+  assert.equal(nameError("Staging", ["Development"]), null);
+  assert.equal(secretInputType(true, false), "password");
+  assert.equal(secretInputType(true, true), "text");
+  assert.equal(secretInputType(false, false), "text");
+});
+
+test("markdown H1 becomes the document title and ignores fences and HTTP comments", () => {
+  assert.equal(extractMarkdownTitle("# API Research\n\nSome content."), "API Research");
+  assert.equal(extractMarkdownTitle("Intro\n\n# Authentication Research\n"), "Authentication Research");
+  assert.equal(
+    extractMarkdownTitle("```text\n# This is not a title\n```\n\nBody"),
+    null,
+  );
+  assert.equal(
+    extractMarkdownTitle("Some text\n\nGET /users\n# comment\n"),
+    null,
+  );
+  assert.equal(
+    extractMarkdownTitle("# Auth\n\n```http\nGET https://x.test\n# @extract token=$.accessToken\n```\n"),
+    "Auth",
+  );
+  const replaced = replaceMarkdownTitle("# API Research\n\nHello", "Authentication Research");
+  assert.match(replaced, /^# Authentication Research\n/);
+  const fenced = replaceMarkdownTitle("```\n# not title\n```\n\ntext", "Nope");
+  assert.equal(fenced.includes("# Nope"), false);
+});
+
+test("Open in JSON contextual input formats immediately", () => {
+  const raw = '{"ok":true,"n":1}';
+  const formatted = prettyJson(raw);
+  assert.equal(formatted.ok, true);
+  if (formatted.ok) {
+    assert.match(formatted.value, /"ok": true/);
+    assert.match(formatted.value, /\n/);
+  }
+});
+
+test("renamed items keep their names through Sheaf JSON export", () => {
+  const snap = snapshot();
+  snap.items[0]!.name = "Renamed login";
+  snap.items[1]!.name = "Renamed investigation";
+  snap.items[1]!.content = "# Renamed investigation\n\n```http\nGET {{baseUrl}}/me\n```\n";
+  const portable = toPortable(snap);
+  const login = portable.collections[0]?.items.find((i) => i.kind === "request");
+  const inv = portable.collections[0]?.items.find((i) => i.kind === "investigation");
+  assert.equal(login?.name, "Renamed login");
+  assert.equal(inv?.name, "Renamed investigation");
+  assert.match(inv?.content ?? "", /^# Renamed investigation/);
+  assert.equal(portable.environments[0]?.name, "Local");
+});
+

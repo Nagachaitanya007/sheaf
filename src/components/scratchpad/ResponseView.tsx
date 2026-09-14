@@ -7,7 +7,7 @@ import { jsonPathToString } from "@/lib/scratchpad/jsonpath";
 import { useScratchpad } from "@/lib/scratchpad/store";
 import type { HttpResponse, ResponseView as ResponseViewTab } from "@/lib/scratchpad/types";
 import { looksLikeEpoch, looksLikeJwt } from "@/lib/scratchpad/utilities";
-import { cn, copyText, formatBytes, formatDuration } from "@/lib/utils";
+import { downloadText, cn, copyText, formatBytes, formatDuration } from "@/lib/utils";
 import { CodeBlock } from "./CodeBlock";
 import { JsonTree } from "./JsonTree";
 import { IconTip } from "@/components/ui/icon-tip";
@@ -59,17 +59,17 @@ export function ResponseView({ response, compact = false }: { response: HttpResp
         ) : null}
         <div className="ml-auto flex flex-wrap gap-1">
           {jwt ? (
-            <Button size="sm" variant="ghost" onClick={() => useScratchpad.getState().setUtility("jwt")}>
+            <Button size="sm" variant="ghost" onClick={() => useScratchpad.getState().setUtility("jwt", response.body)}>
               Inspect JWT
             </Button>
           ) : null}
           {epoch ? (
-            <Button size="sm" variant="ghost" onClick={() => useScratchpad.getState().setUtility("epoch")}>
+            <Button size="sm" variant="ghost" onClick={() => useScratchpad.getState().setUtility("epoch", response.body.trim())}>
               Epoch converter
             </Button>
           ) : null}
           {isJson ? (
-            <Button size="sm" variant="ghost" onClick={() => useScratchpad.getState().setUtility("json-format")}>
+            <Button size="sm" variant="ghost" onClick={() => useScratchpad.getState().setUtility("json-format", pretty || response.body)}>
               Open in JSON
             </Button>
           ) : null}
@@ -87,7 +87,7 @@ export function ResponseView({ response, compact = false }: { response: HttpResp
               Compare
             </Button>
           </IconTip>
-          <IconTip label="Copy">
+          <IconTip label="Copy response">
             <Button
               size="sm"
               variant="ghost"
@@ -97,6 +97,18 @@ export function ResponseView({ response, compact = false }: { response: HttpResp
               }}
             >
               Copy
+            </Button>
+          </IconTip>
+          <IconTip label="Download response">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                downloadText(isJson ? "response.json" : "response.txt", isJson ? pretty : response.body, isJson ? "application/json" : "text/plain");
+                toast.success("Downloaded response");
+              }}
+            >
+              Download
             </Button>
           </IconTip>
         </div>

@@ -208,7 +208,7 @@ export function CommandPalette({ onToggleAppearance }: { onToggleAppearance?: ()
             </Item>
             <Item
               onSelect={() => {
-                setUtility("json-format");
+                setUtility("json-format", useScratchpad.getState().lastResponse?.body);
                 setOpen(false);
               }}
             >
@@ -216,7 +216,7 @@ export function CommandPalette({ onToggleAppearance }: { onToggleAppearance?: ()
             </Item>
             <Item
               onSelect={() => {
-                setUtility("jwt");
+                setUtility("jwt", useScratchpad.getState().lastResponse?.body);
                 setOpen(false);
               }}
             >

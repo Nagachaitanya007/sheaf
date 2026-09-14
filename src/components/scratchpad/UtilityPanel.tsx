@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -109,12 +109,33 @@ function IoBox({
 }
 
 function UtilityBody({ id }: { id: UtilityId }) {
-  const [a, setA] = useState("");
+  const seed = useScratchpad((s) => s.utilityInput);
+  const [a, setA] = useState(() => seed?.value ?? "");
   const [b, setB] = useState("");
-  const [out, setOut] = useState("");
+  const [out, setOut] = useState(() => {
+    if (id === "json-format" && seed?.value) {
+      const r = prettyJson(seed.value);
+      return r.ok ? r.value : r.error;
+    }
+    return "";
+  });
   const [flags, setFlags] = useState("g");
   const [hashAlgo, setHashAlgo] = useState<"SHA-1" | "SHA-256" | "SHA-512">("SHA-256");
   const [uuids, setUuids] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!seed) return;
+    setA(seed.value);
+    if (id === "json-format") {
+      const r = prettyJson(seed.value);
+      setOut(r.ok ? r.value : r.error);
+    } else if (id === "json-minify") {
+      const r = minifyJson(seed.value);
+      setOut(r.ok ? r.value : r.error);
+    } else {
+      setOut("");
+    }
+  }, [id, seed]);
 
   if (id === "json-format") {
     return (

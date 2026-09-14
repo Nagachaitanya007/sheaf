@@ -9,15 +9,20 @@ export const DropdownMenuPortal = DropdownMenuPrimitive.Portal;
 
 export function DropdownMenuContent({
   className,
-  sideOffset = 6,
+  side = "bottom",
+  align = "end",
+  sideOffset = 4,
   collisionPadding = 8,
   ...props
 }: ComponentProps<typeof DropdownMenuPrimitive.Content>) {
   return (
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Content
+        side={side}
+        align={align}
         sideOffset={sideOffset}
         collisionPadding={collisionPadding}
+        avoidCollisions
         className={cn(
           "z-50 min-w-40 overflow-hidden rounded-lg border border-border bg-surface p-1 shadow-[var(--shadow-pop)]",
           className,

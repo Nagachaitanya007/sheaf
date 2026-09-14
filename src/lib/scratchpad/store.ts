@@ -2,8 +2,10 @@ import { create } from "zustand";
 import { isPortable, toPortable, type PortableWorkspace } from "./import-export";
 import { emptyHeaders, interpolate, parseHttpFile, parseSingleRequest } from "./http";
 import { now, uid } from "./ids";
+import { normalizeName } from "./names";
 import { createSeed, rebrandSnapshot } from "./seed";
 import { loadSnapshotSync, saveSnapshot } from "./storage";
+import { extractMarkdownTitle, replaceMarkdownTitle } from "./title";
 import type {
   BodyType,
   Collection,
@@ -19,7 +21,6 @@ import type {
   PersistSnapshot,
   RightTab,
   SidebarView,
-  UiPrefs,
   UtilityId,
   Variable,
 } from "./types";
@@ -66,6 +67,7 @@ export interface ScratchpadState {
   inspectorHidden: boolean;
   online: boolean;
   closedTabIds: string[];
+  utilityInput: { id: UtilityId; value: string; nonce: number } | null;
 }
 
 interface Actions {
@@ -85,7 +87,7 @@ interface Actions {
   setDocMode: (mode: "preview" | "edit") => void;
   setFocusHttpIndex: (index: number | null) => void;
   setSearchQuery: (q: string) => void;
-  setUtility: (id: UtilityId | null) => void;
+  setUtility: (id: UtilityId | null, input?: string) => void;
   selectItem: (id: string | null) => void;
   closeTab: (id: string) => void;
   toggleCollapsed: (id: string) => void;
@@ -193,6 +195,7 @@ export const useScratchpad = create<ScratchpadState & Actions>((set, get) => ({
   inspectorHidden: false,
   online: typeof navigator === "undefined" ? true : navigator.onLine,
   closedTabIds: [],
+  utilityInput: null,
 
   hydrate: async () => {
     try {
@@ -255,7 +258,18 @@ export const useScratchpad = create<ScratchpadState & Actions>((set, get) => ({
   setDocMode: (docMode) => set({ docMode }),
   setFocusHttpIndex: (focusHttpIndex) => set({ focusHttpIndex }),
   setSearchQuery: (searchQuery) => set({ searchQuery, sidebarView: "search" }),
-  setUtility: (activeUtility) => set({ activeUtility, rightTab: "utility" }),
+  setUtility: (activeUtility, input) => {
+    const prev = get().utilityInput;
+    set({
+      activeUtility,
+      rightTab: activeUtility ? "utility" : get().rightTab,
+      mobilePane: activeUtility ? "inspect" : get().mobilePane,
+      utilityInput:
+        input != null
+          ? { id: activeUtility ?? prev?.id ?? "json-format", value: input, nonce: Date.now() }
+          : prev,
+    });
+  },
 
   selectItem: (id) => {
     if (!id) {
@@ -310,8 +324,10 @@ export const useScratchpad = create<ScratchpadState & Actions>((set, get) => ({
   },
 
   renameCollection: (id, name) => {
+    const trimmed = normalizeName(name);
+    if (!trimmed) return;
     set({
-      collections: get().collections.map((c) => (c.id === id ? { ...c, name, updatedAt: now() } : c)),
+      collections: get().collections.map((c) => (c.id === id ? { ...c, name: trimmed, updatedAt: now() } : c)),
     });
     get().persistSoon();
   },
@@ -362,7 +378,7 @@ export const useScratchpad = create<ScratchpadState & Actions>((set, get) => ({
       base.auth = { type: "none" };
     }
     if (kind === "note") {
-      base.content = "# Untitled\n\n";
+      base.content = "# Untitled note\n\n";
     }
     if (kind === "investigation") {
       base.content =
@@ -399,8 +415,17 @@ export const useScratchpad = create<ScratchpadState & Actions>((set, get) => ({
   },
 
   renameItem: (id, name) => {
+    const trimmed = normalizeName(name);
+    if (!trimmed) return;
     set({
-      items: get().items.map((i) => (i.id === id ? { ...i, name, updatedAt: now() } : i)),
+      items: get().items.map((i) => {
+        if (i.id !== id) return i;
+        const content =
+          (i.kind === "note" || i.kind === "investigation") && i.content
+            ? replaceMarkdownTitle(i.content, trimmed)
+            : i.content;
+        return { ...i, name: trimmed, content, updatedAt: now() };
+      }),
     });
     get().persistSoon();
   },
@@ -434,7 +459,15 @@ export const useScratchpad = create<ScratchpadState & Actions>((set, get) => ({
 
   updateRequest: (id, patch) => {
     set({
-      items: get().items.map((i) => (i.id === id ? { ...i, ...patch, updatedAt: now() } : i)),
+      items: get().items.map((i) => {
+        if (i.id !== id) return i;
+        const next: Item = { ...i, ...patch, updatedAt: now() };
+        if (patch.content != null && (i.kind === "note" || i.kind === "investigation")) {
+          const title = extractMarkdownTitle(patch.content);
+          if (title) next.name = title;
+        }
+        return next;
+      }),
     });
     get().persistSoon();
   },
@@ -518,11 +551,13 @@ export const useScratchpad = create<ScratchpadState & Actions>((set, get) => ({
   },
 
   addEnvironment: (name) => {
+    const trimmed = normalizeName(name);
+    if (!trimmed) return;
     const t = now();
     const env: Environment = {
       id: uid("env"),
       workspaceId: get().workspace.id,
-      name,
+      name: trimmed,
       variables: [{ id: uid("v"), key: "baseUrl", value: "https://" }],
       createdAt: t,
       updatedAt: t,
@@ -532,8 +567,10 @@ export const useScratchpad = create<ScratchpadState & Actions>((set, get) => ({
   },
 
   renameEnvironment: (id, name) => {
+    const trimmed = normalizeName(name);
+    if (!trimmed) return;
     set({
-      environments: get().environments.map((e) => (e.id === id ? { ...e, name, updatedAt: now() } : e)),
+      environments: get().environments.map((e) => (e.id === id ? { ...e, name: trimmed, updatedAt: now() } : e)),
     });
     get().persistSoon();
   },
