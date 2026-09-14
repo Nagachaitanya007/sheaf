@@ -12,7 +12,7 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge, methodTone } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,8 +33,33 @@ import { NameDialog } from "./NameDialog";
 export function Sidebar() {
   const view = useScratchpad((s) => s.sidebarView);
   const setView = useScratchpad((s) => s.setSidebarView);
+  const [density, setDensity] = useState<"wide" | "medium" | "narrow" | "compact">("wide");
+  const [hoverExpand, setHoverExpand] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = sidebarRef.current;
+    if (!el) return;
+    const update = (width: number) => {
+      setDensity(width >= 220 ? "wide" : width >= 170 ? "medium" : width >= 125 ? "narrow" : "compact");
+    };
+    update(el.getBoundingClientRect().width);
+    const observer = new ResizeObserver(([entry]) => update(entry.contentRect.width));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-surface">
+    <div
+      ref={sidebarRef}
+      data-density={density}
+      className={cn(
+        "relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-surface",
+        hoverExpand && density !== "wide" && "z-30 overflow-visible shadow-xl",
+      )}
+      onMouseEnter={() => density !== "wide" && setHoverExpand(true)}
+      onMouseLeave={() => setHoverExpand(false)}
+    >
       <div className="shrink-0 px-2 pt-2 pb-1">
         <div className="flex items-center gap-0.5 rounded-lg bg-inset p-0.5">
           <SideTab active={view === "workspace"} onClick={() => setView("workspace")} icon={<Folder className="size-3.5" />} label="Workspace" />
@@ -45,7 +70,41 @@ export function Sidebar() {
       {view === "workspace" ? <WorkspaceTree /> : null}
       {view === "history" ? <HistoryList /> : null}
       {view === "search" ? <SearchList /> : null}
+      <SidebarAdaptiveStyles />
+      {hoverExpand && density !== "wide" ? (
+        <div className="pointer-events-none absolute inset-y-0 left-0 z-[-1] w-[240px] bg-surface shadow-[8px_0_24px_rgba(0,0,0,0.08)]" />
+      ) : null}
     </div>
+  );
+}
+
+function MethodBadge({ method }: { method: string }) {
+  const label = method.toUpperCase();
+  const compact = label === "DELETE" ? "D" : label.slice(0, 1);
+  return (
+    <span
+      className="method-badge shrink-0"
+      data-method={label}
+      title={label}
+      aria-label={label}
+    >
+      <span className="method-full">{label}</span>
+      <span className="method-compact">{compact}</span>
+    </span>
+  );
+}
+
+function NameLabel({ name, className }: { name: string; className?: string }) {
+  return (
+    <span
+      className={cn(
+        "sidebar-name min-w-0 flex-1",
+        className,
+      )}
+      title={name}
+    >
+      <span className="sidebar-name-text">{name}</span>
+    </span>
   );
 }
 
@@ -198,7 +257,7 @@ function CollectionNode({
         <button type="button" className="flex min-w-0 flex-1 items-center gap-1 py-1.5 text-left" onClick={() => toggle(id)}>
           <ChevronRight className={cn("size-3.5 text-subtle transition-transform", open && "rotate-90")} />
           {open ? <FolderOpen className="size-3.5 text-muted" /> : <Folder className="size-3.5 text-muted" />}
-          <span className="min-w-0 flex-1 truncate text-sm font-medium" title={name}>{name}</span>
+          <NameLabel name={name} className="text-sm font-medium" />
         </button>
         <RowMenu
           onRename={onRename}
@@ -249,7 +308,7 @@ function ItemNode({
           <button type="button" className="flex min-w-0 flex-1 items-center gap-1 py-1 text-left" onClick={() => toggle(item.id)}>
             <ChevronRight className={cn("size-3 text-subtle transition-transform", open && "rotate-90")} />
             <Folder className="size-3.5 text-muted" />
-            <span className="min-w-0 flex-1 truncate text-sm" title={item.name}>{item.name}</span>
+            <NameLabel name={item.name} className="text-sm" />
           </button>
           <RowMenu
             onRename={() => onRenameItem(item)}
@@ -278,15 +337,13 @@ function ItemNode({
         onClick={() => selectItem(item.id)}
       >
         {item.kind === "request" ? (
-          <Badge tone={methodTone(item.method ?? "GET")} className="min-w-11 justify-center px-1">
-            {item.method ?? "GET"}
-          </Badge>
+          <MethodBadge method={item.method ?? "GET"} />
         ) : item.kind === "investigation" ? (
           <FileSearch className="size-3.5 text-accent" />
         ) : (
           <FileText className="size-3.5 text-muted" />
         )}
-        <span className="min-w-0 flex-1 truncate text-sm" title={item.name}>{item.name}</span>
+        <NameLabel name={item.name} className="text-sm" />
       </button>
       <RowMenu
         onRename={() => onRenameItem(item)}
@@ -312,7 +369,7 @@ function RowMenu({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="mr-1 flex size-7 shrink-0 items-center justify-center rounded-md text-subtle hover:text-foreground opacity-100 md:opacity-0 md:group-hover:opacity-100 md:data-[state=open]:opacity-100 md:focus-visible:opacity-100"
+            className="sidebar-row-action mr-1 flex size-7 shrink-0 items-center justify-center rounded-md text-subtle opacity-100 hover:text-foreground md:opacity-0 md:group-hover:opacity-100 md:data-[state=open]:opacity-100 md:focus-visible:opacity-100"
             aria-label="More actions"
           >
             <MoreHorizontal className="size-3.5" />
@@ -451,6 +508,86 @@ function SearchList() {
         ))}
       </div>
     </div>
+  );
+}
+
+function SidebarAdaptiveStyles() {
+  return (
+    <style>{`
+      [data-density="wide"] .method-compact,
+      [data-density="medium"] .method-compact { display: none; }
+
+      [data-density="narrow"] .method-full,
+      [data-density="compact"] .method-full { display: none; }
+
+      [data-density="narrow"] .method-badge,
+      [data-density="compact"] .method-badge {
+        width: 24px;
+        height: 22px;
+        padding: 0;
+        border-radius: 7px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+      }
+
+      [data-density="compact"] .method-badge {
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+      }
+
+      [data-density="medium"] .sidebar-row-action {
+        opacity: 0;
+      }
+
+      [data-density="narrow"] .sidebar-name-text,
+      [data-density="compact"] .sidebar-name-text {
+        display: block;
+        overflow: hidden;
+        white-space: nowrap;
+        mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent 100%);
+        -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent 100%);
+      }
+
+      [data-density="compact"] .sidebar-name-text {
+        mask-image: linear-gradient(to right, #000 calc(100% - 14px), transparent 100%);
+        -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 14px), transparent 100%);
+      }
+
+      [data-density="narrow"] .nav-row,
+      [data-density="compact"] .nav-row {
+        padding-top: 3px;
+        padding-bottom: 3px;
+      }
+
+      [data-density="narrow"] .nav-row > button,
+      [data-density="compact"] .nav-row > button {
+        gap: 5px;
+      }
+
+      [data-density="compact"] .nav-row > button > svg:not(.size-3\.5) {
+        display: none;
+      }
+
+      [data-density="narrow"] .group > button > svg.size-3\.5 {
+        display: none;
+      }
+
+      [data-density="narrow"] .group > button,
+      [data-density="compact"] .group > button {
+        gap: 4px;
+      }
+
+      [data-density="compact"] .group > button > svg.size-3\.5 {
+        display: none;
+      }
+
+      [data-density="compact"] .sidebar-name {
+        display: none;
+      }
+    `}</style>
   );
 }
 
